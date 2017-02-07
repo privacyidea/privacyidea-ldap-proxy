@@ -7,8 +7,6 @@ import urllib
 from cStringIO import StringIO
 from functools import partial
 
-import configobj
-import validate
 from ldaptor.protocols import pureldap
 from ldaptor.protocols.ldap import ldaperrors
 from ldaptor.protocols.ldap.ldapclient import LDAPClient
@@ -20,7 +18,7 @@ from twisted.web.client import Agent, FileBodyProducer, readBody
 from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
-from pi_ldapproxy.config import report_config_errors, load_config
+from pi_ldapproxy.config import load_config
 from pi_ldapproxy.usermapping import MAPPING_STRATEGIES
 
 PROXIED_ENDPOINT_TEMPLATE = 'tcp:host={backend[host]}:port={backend[port]}'

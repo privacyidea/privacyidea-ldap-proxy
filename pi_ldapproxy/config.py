@@ -2,6 +2,31 @@ import configobj
 import sys
 import validate
 
+CONFIG_SPEC = """
+[privacyidea]
+endpoint = string
+realm = string(default='')
+
+[ldap-backend]
+host = string
+port = integer
+use-tls = boolean
+
+[ldap-proxy]
+port = integer
+hostname = string(default='')
+passthrough-binds = force_list
+bind-service-account = boolean(default=False)
+allow-authenticated-search = boolean(default=False)
+
+[service-account]
+dn = string
+password = string
+
+[bind-cache]
+enabled = boolean
+timeout = integer(default=3)
+"""
 
 def report_config_errors(config, result):
     """
@@ -24,7 +49,7 @@ def report_config_errors(config, result):
 
 def load_config(filename):
     with open(filename, 'r') as f:
-        config = configobj.ConfigObj(f, configspec='configspec.ini')
+        config = configobj.ConfigObj(f, configspec=CONFIG_SPEC.splitlines())
 
     validator = validate.Validator()
     result = config.validate(validator, preserve_errors=True)
