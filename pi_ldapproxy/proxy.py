@@ -155,7 +155,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 return None
         elif isinstance(request, pureldap.LDAPSearchRequest):
             # If the corresponding config option is not set, search requests are rejected.
-            if not self.factory.allow_authenticated_search:
+            if not self.factory.allow_search:
                 # TODO: Is that the right response?
                 log.msg('Incoming search request, but configuration allows no search.')
                 reply(pureldap.LDAPSearchResultDone(ldaperrors.LDAPInsufficientAccessRights.resultCode,
@@ -194,7 +194,7 @@ class ProxyServerFactory(protocol.ServerFactory):
             self.passthrough_binds = []
         log.msg('Passthrough DNs: {!r}'.format(self.passthrough_binds))
 
-        self.allow_authenticated_search = config['ldap-proxy']['allow-authenticated-search']
+        self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
 
         mapping_strategy = MAPPING_STRATEGIES[config['user-mapping']['strategy']]
