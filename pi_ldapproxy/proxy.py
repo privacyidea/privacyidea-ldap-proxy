@@ -180,6 +180,11 @@ class ProxyServerFactory(protocol.ServerFactory):
         # Read configuration options.
         self.agent = Agent(reactor)
         self.use_tls = config['ldap-backend']['use-tls']
+        if self.use_tls:
+            # TODO: This seems to get lost if we use log.msg
+            print 'LDAP over TLS is currently unsupported. Exiting.'
+            sys.exit(1)
+
         self.proxied_endpoint_string = PROXIED_ENDPOINT_TEMPLATE.format(backend=config['ldap-backend'])
         self.validate_url = config['privacyidea']['endpoint']
         self.validate_realm = config['privacyidea']['realm']
@@ -215,6 +220,8 @@ class ProxyServerFactory(protocol.ServerFactory):
         :return: A Deferred that fires a `LDAPClient` instance
         """
         client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
+        if self.use_tls:
+            client = yield client.startTLS()
         yield client.bind(self.service_account_dn, self.service_account_password)
         # TODO: What to do about an exception here?
         defer.returnValue(client)
