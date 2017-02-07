@@ -20,6 +20,7 @@ from twisted.web.client import Agent, FileBodyProducer, readBody
 from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
+from pi_ldapproxy.config import report_config_errors, load_config
 from pi_ldapproxy.usermapping import MAPPING_STRATEGIES
 
 PROXIED_ENDPOINT_TEMPLATE = 'tcp:host={backend[host]}:port={backend[port]}'
@@ -266,23 +267,6 @@ class ProxyServerFactory(protocol.ServerFactory):
         proto.use_tls = self.use_tls
         return proto
 
-def report_config_errors(config, result):
-    """
-    Interpret configobj results and report configuration errors to the user.
-    """
-    # from http://www.voidspace.org.uk/python/configobj.html#example-usage
-    print 'Invalid config file:'
-    for entry in configobj.flatten_errors(config, result):
-        # each entry is a tuple
-        section_list, key, error = entry
-        if key is not None:
-            section_list.append(key)
-        else:
-            section_list.append('(missing section)')
-        section_string = ', '.join(section_list)
-        if error == False:
-            error = 'Invalid value (or section).'
-        print '{}: {}'.format(section_string, error)
 
 if __name__ == '__main__':
     log.startLogging(sys.stderr)
@@ -291,15 +275,7 @@ if __name__ == '__main__':
     parser.add_argument('config', help='path to the configuration file')
     args = parser.parse_args()
 
-    with open(args.config, 'r') as f:
-        config = configobj.ConfigObj(f, configspec='configspec.ini')
-
-    validator = validate.Validator()
-    result = config.validate(validator, preserve_errors=True)
-    if result != True:
-        report_config_errors(config, result)
-        sys.exit(1)
-
+    config = load_config(args.config)
     factory = ProxyServerFactory(config)
 
     proxy_port = config['ldap-proxy']['port']
