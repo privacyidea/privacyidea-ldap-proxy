@@ -264,20 +264,3 @@ class ProxyServerFactory(protocol.ServerFactory):
         proto.clientConnector = client_connector
         proto.use_tls = self.use_tls
         return proto
-
-
-if __name__ == '__main__':
-    log.startLogging(sys.stderr)
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('config', help='path to the configuration file')
-    args = parser.parse_args()
-
-    config = load_config(args.config)
-    factory = ProxyServerFactory(config)
-
-    proxy_port = config['ldap-proxy']['port']
-    proxy_hostname = config['ldap-proxy']['hostname']
-    reactor.listenTCP(proxy_port, factory, interface=proxy_hostname)
-    log.msg('Listening on {!r}, port {} ...'.format(proxy_hostname, proxy_port))
-    reactor.run()
