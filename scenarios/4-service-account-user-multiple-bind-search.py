@@ -1,59 +1,22 @@
 """
-Scenario 3) App uses a service account to look up user's DN and uses user search after bind.
+Scenario 4) App uses a service account to look up user's DN. Afterwards, the user sends *two* bind and search
+requests.
 
 Given a username, the app uses a service account to find the user's DN. For that, it performs an LDAP bind followed
 by an LDAP server. After that, it issues a bind on behalf of the user and uses an LDAP search under the user's
-context to retrieve profile information of the user.
+context to retrieve profile information of the user. This is done twice during a 3-second timeframe.
+
+This will only work if the LDAP proxy caches bind requests.
 """
 from pprint import pprint
 
 import ldap3
 import configobj
+import time
 
-def lookup_user(username, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute):
-    """
-    Given an user-provided username, lookup the user's DN. If the user couldn't be found, raise a RuntimeError.
-    :param username: login name
-    :param ldap_server: LDAP server IP
-    :param service_account_dn: DN of the service account
-    :param service_account_password: Password of the service account
-    :param base_dn: DN under which users are located
-    :param loginname_attribute: Attribute which should match *username*
-    :return: User's DN as a string
-    """
-    conn = ldap3.Connection(ldap_server, user=service_account_dn, password=service_account_password)
-    result = conn.bind()
-    if result:
-        print '[Service Account] Successful bind!'
-        conn.search(base_dn,
-                    '({attr}={username})'.format(attr=loginname_attribute, username=username),
-                    attributes=['cn'])
-        print '[Service Account] Looking for entry that satisfies {attr}={username}'.format(
-            attr=loginname_attribute,
-            username=username)
-        if len(conn.entries) != 1:
-            raise RuntimeError('Expected one entry, found {}!'.format(len(conn.entries)))
-        entry = conn.entries[0]
-        return entry.entry_dn
-    else:
-        raise RuntimeError('[Service Account] Bind FAILED!')
+from common import lookup_user
 
-
-def login(username, password, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute):
-    """
-    Given username, password and a LDAP configuration, attempt a login.
-    :param username: login name of the user
-    :param password: supplied password
-    :param ldap_server: LDAP server IP
-    :param service_account_dn: Distinguished Name of the service account
-    :param service_account_password: Password of the service account
-    :param base_dn: the base DN under which user search should be performed
-    :param loginname_attribute: the attribute which contains the login name
-    :return: dictionary with boolean key 'success'. In case of success, it also contains user information.
-    """
-    dn = lookup_user(username, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute)
-    print 'Given username {!r}, looked up dn: {!r}'.format(username, dn)
-    print 'Connecting to LDAP server {!r} ...'.format(ldap_server)
+def perform_login_search(dn, password, ldap_server):
     conn = ldap3.Connection(ldap_server, user=dn, password=password)
     print 'Bind with password {!r} ...'.format(password),
     result = conn.bind()
@@ -74,6 +37,33 @@ def login(username, password, ldap_server, service_account_dn, service_account_p
             'success': False,
         }
 
+def login(username, password, ldap_server, service_account_dn, service_account_password,
+          base_dn, loginname_attribute, wait_seconds):
+    """
+    Given username, password and a LDAP configuration, attempt a login.
+    :param username: login name of the user
+    :param password: supplied password
+    :param ldap_server: LDAP server IP
+    :param service_account_dn: Distinguished Name of the service account
+    :param service_account_password: Password of the service account
+    :param base_dn: the base DN under which user search should be performed
+    :param loginname_attribute: the attribute which contains the login name
+    :param wait_seconds: Wait a specific number of seconds before issuing the second user bind request.
+    :return: dictionary with boolean key 'success'. In case of success, it also contains user information.
+    """
+    dn = lookup_user(username, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute)
+    print 'Given username {!r}, looked up dn: {!r}'.format(username, dn)
+    print '[1] Connecting to LDAP server {!r} ...'.format(ldap_server)
+    result1 = perform_login_search(dn, password, ldap_server)
+    if not result1['success']:
+        print 'exiting ...'
+        return result1
+    print 'Waiting for {!r} seconds ...'.format(wait_seconds)
+    time.sleep(wait_seconds)
+    print '[2] Connecting to LDAP server {!r} ...'.format(ldap_server)
+    result2 = perform_login_search(dn, password, ldap_server)
+    return result2
+
 if __name__ == '__main__':
     with open('config.ini') as f:
         config = configobj.ConfigObj(f)
@@ -86,4 +76,5 @@ if __name__ == '__main__':
                  config['service-account-dn'],
                  config['service-account-password'],
                  config['base-dn'],
-                 config['loginname-attribute']))
+                 config['loginname-attribute'],
+                 int(config['wait-seconds'])))
