@@ -253,7 +253,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         :return: a boolean
         """
         if self.bind_cache is not None:
-            return (dn, password) in self.bind_cache
+            return self.bind_cache.is_cached(dn, password)
         else:
             return False
 
