@@ -23,3 +23,10 @@ In the foreground:
 
     twistd -n ldap-proxy -c config.ini
 
+Testing
+-------
+
+Unit tests are implemented using [Trial](http://twistedmatrix.com/documents/current/core/howto/trial.html), which
+is part of Twisted. They can be run using:
+
+    trial tests/
