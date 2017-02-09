@@ -12,6 +12,10 @@ class BindCache(object):
         does not fire for some reason. Right now, the credentials can then never be added to the bind cache again.
         Is this wanted behavior?
     """
+    # Only indirectly calling reactor.callLater here to enable efficient unit testing
+    # (see http://twistedmatrix.com/documents/current/core/howto/trial.html)
+    callLater = reactor.callLater
+
     def __init__(self, timeout=5):
         """
         :param timeout: Number of seconds after which the entry is removed from the bind cache
@@ -33,7 +37,7 @@ class BindCache(object):
             current_time = reactor.seconds()
             log.msg('Adding to cache: dn={!r}, time={!r}'.format(item[0], current_time))
             self._cache[item] = current_time
-            reactor.callLater(self.timeout, self.remove_from_cache, dn, password)
+            self.callLater(self.timeout, self.remove_from_cache, dn, password)
         else:
             log.msg('Already in the cache: dn={!r}'.format(item[0]))
 
@@ -62,7 +66,7 @@ class BindCache(object):
         if item in self._cache:
             current_time = reactor.seconds()
             inserted_time = self._cache[item]
-            # Even though credentials **should** be removed automatically by ``reactor.callLater``, check
+            # Even though credentials **should** be removed automatically by ``callLater``, check
             # the stored timestamp.
             if current_time - inserted_time < self.timeout:
                 return True
