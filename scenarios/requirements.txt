@@ -1,0 +1,7 @@
+appdirs==1.4.0
+configobj==5.0.6
+ldap3==2.2.0
+packaging==16.8
+pyasn1==0.2.2
+pyparsing==2.1.10
+six==1.10.0
