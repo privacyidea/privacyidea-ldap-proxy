@@ -78,6 +78,8 @@ class LookupMappingStrategy(UserMappingStrategy):
             results = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_baseObject)
         except ldaperrors.LDAPNoSuchObject, e:
             # Apparently, the user could not be found. Raise the appropriate exception.
+            # However, unbind first
+            yield client.unbind()
             raise UserMappingError(dn)
         else:
             # Assuming we found one, extract the login name attribute
@@ -87,6 +89,7 @@ class LookupMappingStrategy(UserMappingStrategy):
             (login_name,) = login_name_set
             yield client.unbind()
             defer.returnValue(login_name)
+        # TODO: For other kinds of LDAP errors (apart from LDAPNoSuchObject), client.unbind() is never called
 
 MAPPING_STRATEGIES = {
     'match': MatchMappingStrategy,
