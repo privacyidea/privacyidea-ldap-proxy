@@ -18,7 +18,7 @@ class LDAPConnection(ldap3.Connection):
                                         response_length=0)
         else:
             events.request_failure.fire(request_type='ldap-bind', name=self.user, response_time=total_time,
-                                        exception=self.result)
+                                        exception="{result}: {message}".format(**self.result))
 
     #def search(self, *args, **kwargs):
     #    start_time = time.time()
