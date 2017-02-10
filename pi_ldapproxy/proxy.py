@@ -23,11 +23,9 @@ from pi_ldapproxy.usermapping import MAPPING_STRATEGIES
 
 PROXIED_ENDPOINT_TEMPLATE = 'tcp:host={backend[host]}:port={backend[port]}'
 
-def debug(msg):
-    log.msg(msg, logLevel=logging.DEBUG)
-
 class ProxyError(Exception):
     pass
+
 
 class TwoFactorAuthenticationProxy(ProxyBase):
     def request_validate(self, url, user, realm, password):
@@ -230,7 +228,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         """
         Invoke the user mapper to find the username of the user identified by the DN *dn*.
         :param dn: LDAP distinguished name as string
-        :return: a string
+        :return: a Deferred firing a string
         """
         return self.user_mapper.resolve(dn)
 

@@ -51,9 +51,9 @@ class BindCache(object):
         item = (dn, password)
         if item in self._cache:
             del self._cache[item]
-            log.msg('Removed from cache: {!r} ({!r} remaining)'.format(item[0], len(self._cache)))
+            log.msg('Removed from cache: dn={!r} ({!r} remaining)'.format(item[0], len(self._cache)))
         else:
-            log.msg("Couldn't remove {!r} from cache".format(item[0]))
+            log.msg("Removal failed as dn={!r} cached".format(item[0]))
 
     def is_cached(self, dn, password):
         """
@@ -70,4 +70,8 @@ class BindCache(object):
             # the stored timestamp.
             if current_time - inserted_time < self.timeout:
                 return True
+            else:
+                log.msg('Inconsistent bind cache: dn={!r}, inserted={!r}, current={!r}'.format(
+                    dn, inserted_time, current_time
+                ))
         return False

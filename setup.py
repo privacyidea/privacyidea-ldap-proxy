@@ -4,5 +4,5 @@ setup(name='pi-ldapproxy',
       version='0.1',
       description='privacyIDEA LDAP Proxy based on Twisted',
       author='privacyidea.org',
-      packages=['pi_ldapproxy', 'twisted.plugins'],
+      packages=['pi_ldapproxy', 'pi_ldapproxy.test', 'twisted.plugins'],
       )
