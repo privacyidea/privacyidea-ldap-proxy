@@ -32,7 +32,7 @@ ldap-proxy can be run in the foreground as follows:
 twistd can be used to configure, e.g., logging and daemonizing. Refer to its
 [documentation](https://twistedmatrix.com/documents/current/core/howto/basics.html) for more information.
 
-`deploy` contains an exemplary systemd service file.
+`deploy/` contains an exemplary systemd service file.
 
 Testing
 -------
@@ -40,6 +40,6 @@ Testing
 Unit tests are implemented using [Trial](http://twistedmatrix.com/documents/current/core/howto/trial.html), which
 is part of Twisted. They can be run using:
 
-    trial tests/
+    trial pi_ldapproxy.test
 
 There are also a number of client-side scenarios implemented in the `scenarios/` directory.
