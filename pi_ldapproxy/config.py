@@ -2,6 +2,8 @@ import configobj
 import sys
 import validate
 
+#: ``validator``-compatible config specification
+#: This is useful not only to report errors to the user, but also to perform automatic type conversion.
 CONFIG_SPEC = """
 [privacyidea]
 endpoint = string
@@ -48,6 +50,13 @@ def report_config_errors(config, result):
 
 
 def load_config(filename):
+    """
+    Load, validate and return the configuration file stored at *filename*.
+    In case the configuration is invalid, report the error to the user
+    and exit with return code 1.
+    :param filename: config filename as a string
+    :return: a dictionary
+    """
     with open(filename, 'r') as f:
         config = configobj.ConfigObj(f, configspec=CONFIG_SPEC.splitlines())
 

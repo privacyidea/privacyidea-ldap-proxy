@@ -12,16 +12,24 @@ from pi_ldapproxy.proxy import ProxyServerFactory
 
 
 class Options(usage.Options):
+    #: The configuration file (which is mandatory) is passed as a parameter.
+    #: It might be desirable to use a positional argument instead.
     optParameters = [["config", "c", None, "Configuration file"]]
 
 
 @implementer(IServiceMaker, IPlugin)
 class ProxyServiceMaker(object):
     tapname = "ldap-proxy"
-    description = "LDAP Proxy"
+    description = "privacyIDEA LDAP Proxy"
     options = Options
 
     def makeService(self, options):
+        """
+        Called by Twisted after having parsed the command-line options.
+        :param options: ``usage.Options`` instance
+        :return: the server instance
+        """
+        # Configuration is mandatory
         if options['config'] is None:
             print 'You need to specify a configuration file via `twistd ldap-proxy -c config.ini`.'
             sys.exit(1)
