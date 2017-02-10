@@ -55,10 +55,12 @@ class BindCacheTest(unittest.TestCase):
         """
         Test what happens in case ``reactor.callLater`` does not fire for some reason
         """
-        cache = BindCache(0.1)
+        cache = BindCache(1)
         cache.callLater = lambda *args, **kwargs: None
-        # Add and wait a second, it should still be there
+        # Add and wait half a second, it should still be there
         cache.add_to_cache(DN, PASSWORD)
-        # TODO: This is not perfect - find a way to test this without sleeping
         time.sleep(0.5)
+        self.assertTrue(cache.is_cached(DN, PASSWORD))
+        # TODO: This is not perfect - find a way to test this without sleeping
+        time.sleep(1)
         self.assertFalse(cache.is_cached(DN, PASSWORD))
