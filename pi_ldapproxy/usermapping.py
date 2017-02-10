@@ -1,6 +1,7 @@
 import re
 
 from ldaptor.protocols import pureldap
+from ldaptor.protocols.ldap import ldaperrors
 from ldaptor.protocols.ldap.ldapsyntax import LDAPEntry
 from twisted.internet import defer
 from twisted.python import log
@@ -48,7 +49,7 @@ class MatchMappingStrategy(UserMappingStrategy):
         if match is not None:
             return defer.succeed(match.group(1))
         else:
-            raise UserMappingError('Pattern does not match {!r}'.format(dn))
+            raise UserMappingError(dn)
 
 class LookupMappingStrategy(UserMappingStrategy):
     """
@@ -73,14 +74,19 @@ class LookupMappingStrategy(UserMappingStrategy):
         # Perform a LDAP bind, search for an object with the distinguished name *dn*
         client = yield self.factory.connect_service_account()
         entry = LDAPEntry(client, dn)
-        results = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_baseObject)
-        # Assuming we found one, extract the login name attribute
-        assert len(results) == 1
-        login_name_set = results[0][self.attribute]
-        assert len(login_name_set) == 1
-        (login_name,) = login_name_set
-        yield client.unbind()
-        defer.returnValue(login_name)
+        try:
+            results = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_baseObject)
+        except ldaperrors.LDAPNoSuchObject, e:
+            # Apparently, the user could not be found. Raise the appropriate exception.
+            raise UserMappingError(dn)
+        else:
+            # Assuming we found one, extract the login name attribute
+            assert len(results) == 1
+            login_name_set = results[0][self.attribute]
+            assert len(login_name_set) == 1
+            (login_name,) = login_name_set
+            yield client.unbind()
+            defer.returnValue(login_name)
 
 MAPPING_STRATEGIES = {
     'match': MatchMappingStrategy,

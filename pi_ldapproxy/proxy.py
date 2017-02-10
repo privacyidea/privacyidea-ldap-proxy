@@ -19,7 +19,7 @@ from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
-from pi_ldapproxy.usermapping import MAPPING_STRATEGIES
+from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
 
 PROXIED_ENDPOINT_TEMPLATE = 'tcp:host={backend[host]}:port={backend[port]}'
 
@@ -62,29 +62,35 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :return: Deferred that fires a tuple ``(success, message)``, whereas ``success`` denotes whether privacyIDEA
         successfully validated the given password. If ``success`` is ``False``, ``message`` contains an error message.
         """
-        user = yield self.factory.resolve_user(request.dn)
-        log.msg('Resolved {!r} to {!r}'.format(request.dn, user))
-        password = request.auth
-        response = yield self.request_validate(self.factory.validate_url,
-                                               user,
-                                               self.factory.validate_realm,
-                                               password)
-        json_body = yield readBody(response)
         result = (False, '')
-        if response.code == 200:
-            body = json.loads(json_body)
-            if body['result']['status']:
-                if body['result']['value']:
-                    result = (True, '')
-                    # TODO: Is this the right place to bind the service user?
-                    if self.factory.bind_service_account:
-                        yield self.bind_service_account()
-                else:
-                    result = (False, 'Failed to authenticate.')
-            else:
-                result = (False, 'Failed to authenticate. privacyIDEA error.')
+        try:
+            user = yield self.factory.resolve_user(request.dn)
+        except UserMappingError:
+            # User could not be found
+            log.msg('Could not resolve {!r}'.format(request.dn))
+            result = (False, 'Invalid user.')
         else:
-            result = (False, 'Failed to authenticate. Wrong HTTP response')
+            log.msg('Resolved {!r} to {!r}'.format(request.dn, user))
+            password = request.auth
+            response = yield self.request_validate(self.factory.validate_url,
+                                                   user,
+                                                   self.factory.validate_realm,
+                                                   password)
+            json_body = yield readBody(response)
+            if response.code == 200:
+                body = json.loads(json_body)
+                if body['result']['status']:
+                    if body['result']['value']:
+                        result = (True, '')
+                        # TODO: Is this the right place to bind the service user?
+                        if self.factory.bind_service_account:
+                            yield self.bind_service_account()
+                    else:
+                        result = (False, 'Failed to authenticate.')
+                else:
+                    result = (False, 'Failed to authenticate. privacyIDEA error.')
+            else:
+                result = (False, 'Failed to authenticate. Wrong HTTP response')
         defer.returnValue(result)
 
     def send_bind_response(self, result, request, reply):
@@ -228,7 +234,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         """
         Invoke the user mapper to find the username of the user identified by the DN *dn*.
         :param dn: LDAP distinguished name as string
-        :return: a Deferred firing a string
+        :return: a Deferred firing a string (or raising a UserMappingError)
         """
         return self.user_mapper.resolve(dn)
 
