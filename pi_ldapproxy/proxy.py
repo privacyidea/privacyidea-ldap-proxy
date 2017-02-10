@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 import argparse
 import json
-import logging
 import sys
 import urllib
 from cStringIO import StringIO
@@ -13,13 +12,15 @@ from ldaptor.protocols.ldap.ldapclient import LDAPClient
 from ldaptor.protocols.ldap.ldapconnector import connectToLDAPEndpoint
 from ldaptor.protocols.ldap.proxybase import ProxyBase
 from twisted.internet import defer, protocol, reactor
-from twisted.python import log
+from twisted.logger import Logger
 from twisted.web.client import Agent, FileBodyProducer, readBody
 from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
 from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
+
+log = Logger()
 
 PROXIED_ENDPOINT_TEMPLATE = 'tcp:host={backend[host]}:port={backend[port]}'
 
@@ -67,10 +68,10 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             user = yield self.factory.resolve_user(request.dn)
         except UserMappingError:
             # User could not be found
-            log.msg('Could not resolve {!r}'.format(request.dn))
+            log.info('Could not resolve {dn!r}', dn=request.dn)
             result = (False, 'Invalid user.')
         else:
-            log.msg('Resolved {!r} to {!r}'.format(request.dn, user))
+            log.info('Resolved {dn!r} to {user!r}', dn=request.dn, user=user)
             password = request.auth
             response = yield self.request_validate(self.factory.validate_url,
                                                    user,
@@ -103,11 +104,11 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         """
         success, message = result
         if success:
-            log.msg('Sending BindResponse "success"')
+            log.info('Sending BindResponse "success"')
             self.factory.finalize_authentication(request.dn, request.auth)
             reply(pureldap.LDAPBindResponse(ldaperrors.Success.resultCode))
         else:
-            log.msg('Sending BindResponse "invalid credentials": {}'.format(message))
+            log.info('Sending BindResponse "invalid credentials": {message}', message=message)
             reply(pureldap.LDAPBindResponse(ldaperrors.LDAPInvalidCredentials.resultCode, errorMessage=message))
 
     def send_error_bind_response(self, failure, request, reply):
@@ -118,7 +119,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :param reply: A function that expects a ``LDAPResult`` object
         :return:
         """
-        log.err(failure)
+        log.failure("Could not bind", failure)
         # TODO: Is it right to send LDAPInvalidCredentials here?
         self.send_bind_response((False, 'LDAP Proxy failed.'), request, reply)
 
@@ -127,7 +128,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         """
         :return: A deferred that sends a bind request for the service account at `self.client`
         """
-        log.msg('Binding service account ...')
+        log.info('Binding service account ...')
         yield self.client.bind(self.factory.service_account_dn, self.factory.service_account_password)
 
     def handleBeforeForwardRequest(self, request, controls, reply):
@@ -143,16 +144,16 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 self.send_bind_response((False, 'Anonymous binds are not supported.'), request, reply)
                 return None
             elif request.dn in self.factory.passthrough_binds:
-                log.msg('BindRequest for {!r}, passing through ...'.format(request.dn))
+                log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
                 return request, controls
             elif self.factory.is_bind_cached(request.dn, request.auth):
-                log.msg('Combination found in bind cache, authenticating as service user ...')
+                log.info('Combination found in bind cache, authenticating as service user ...')
                 # TODO: This is a shortcut - maybe do this differently
                 request.dn = self.factory.service_account_dn
                 request.auth = self.factory.service_account_password
                 return request, controls
             else:
-                log.msg("BindRequest for {!r} received, redirecting to privacyIDEA ...".format(request.dn))
+                log.info("BindRequest for {dn!r} received, redirecting to privacyIDEA ...", dn=request.dn)
                 d = self.authenticate_bind_request(request)
                 d.addCallback(self.send_bind_response, request, reply)
                 d.addErrback(self.send_error_bind_response, request, reply)
@@ -161,7 +162,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # If the corresponding config option is not set, search requests are rejected.
             if not self.factory.allow_search:
                 # TODO: Is that the right response?
-                log.msg('Incoming search request, but configuration allows no search.')
+                log.info('Incoming search request, but configuration allows no search.')
                 reply(pureldap.LDAPSearchResultDone(ldaperrors.LDAPInsufficientAccessRights.resultCode,
                                         errorMessage='LDAP Search disallowed according to the configuration.'))
                 return None
@@ -170,7 +171,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # the service account is already authenticated for `self.client`.
             return request, controls
         else:
-            log.msg("{!r} received, rejecting.".format(request.__class__.__name__))
+            log.info("{class_!r} received, rejecting.", class_=request.__class__.__name__)
             # TODO: Is that the right approach to reject (any) request?
             reply(pureldap.LDAPResult(ldaperrors.LDAPInsufficientAccessRights.resultCode,
                     errorMessage='Rejecting LDAP Search without successful privacyIDEA authentication'))
@@ -185,7 +186,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         self.agent = Agent(reactor)
         self.use_tls = config['ldap-backend']['use-tls']
         if self.use_tls:
-            # TODO: This seems to get lost if we use log.msg
+            # TODO: This seems to get lost if we use log.info
             print 'LDAP over TLS is currently unsupported. Exiting.'
             sys.exit(1)
 
@@ -201,13 +202,13 @@ class ProxyServerFactory(protocol.ServerFactory):
         self.passthrough_binds = config['ldap-proxy']['passthrough-binds']
         if len(self.passthrough_binds) == 1 and self.passthrough_binds[0]  == '':
             self.passthrough_binds = []
-        log.msg('Passthrough DNs: {!r}'.format(self.passthrough_binds))
+        log.info('Passthrough DNs: {binds!r}', binds=self.passthrough_binds)
 
         self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
 
         mapping_strategy = MAPPING_STRATEGIES[config['user-mapping']['strategy']]
-        log.msg('Using mapping strategy: {!r}'.format(mapping_strategy))
+        log.info('Using mapping strategy: {strategy!r}', strategy=mapping_strategy)
 
         self.user_mapper = mapping_strategy(self, config['user-mapping'])
 

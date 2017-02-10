@@ -1,5 +1,7 @@
 from twisted.internet import reactor
-from twisted.python import log
+from twisted.logger import Logger
+
+log = Logger()
 
 class BindCache(object):
     """
@@ -35,11 +37,11 @@ class BindCache(object):
         item = (dn, password)
         if item not in self._cache:
             current_time = reactor.seconds()
-            log.msg('Adding to cache: dn={!r}, time={!r}'.format(item[0], current_time))
+            log.info('Adding to cache: dn={dn!r}, time={time!r}', dn=dn, time=current_time)
             self._cache[item] = current_time
             self.callLater(self.timeout, self.remove_from_cache, dn, password)
         else:
-            log.msg('Already in the cache: dn={!r}'.format(item[0]))
+            log.info('Already in the cache: dn={dn!r}', dn=dn)
 
     def remove_from_cache(self, dn, password):
         """
@@ -51,9 +53,9 @@ class BindCache(object):
         item = (dn, password)
         if item in self._cache:
             del self._cache[item]
-            log.msg('Removed from cache: dn={!r} ({!r} remaining)'.format(item[0], len(self._cache)))
+            log.info('Removed from cache: dn={dn!r} ({remaining!r} remaining)', dn=dn, remaining=len(self._cache))
         else:
-            log.msg("Removal failed as dn={!r} cached".format(item[0]))
+            log.info("Removal failed as dn={dn!r} cached", dn=dn)
 
     def is_cached(self, dn, password):
         """
@@ -71,7 +73,7 @@ class BindCache(object):
             if current_time - inserted_time < self.timeout:
                 return True
             else:
-                log.msg('Inconsistent bind cache: dn={!r}, inserted={!r}, current={!r}'.format(
-                    dn, inserted_time, current_time
-                ))
+                log.info('Inconsistent bind cache: dn={dn!r}, inserted={inserted!r}, current={current!r}',
+                    dn=dn, inserted=inserted_time, current=current_time,
+                )
         return False
