@@ -14,8 +14,7 @@ endpoint = string
 use-tls = boolean
 
 [ldap-proxy]
-port = integer
-hostname = string(default='')
+endpoint = string
 passthrough-binds = force_list
 bind-service-account = boolean(default=False)
 allow-search = boolean(default=False)

@@ -1,5 +1,7 @@
 import sys
 
+from twisted.internet import reactor
+from twisted.internet.endpoints import serverFromString
 from zope.interface import implementer
 
 from twisted.python import usage, log
@@ -37,12 +39,8 @@ class ProxyServiceMaker(object):
         config = load_config(options['config'])
         factory = ProxyServerFactory(config)
 
-        proxy_port = config['ldap-proxy']['port']
-        proxy_hostname = config['ldap-proxy']['hostname']
-        log.msg('Listening on {}:{} ...'.format(proxy_hostname, proxy_port))
-        return internet.TCPServer(proxy_port,
-                                  factory,
-                                  interface=proxy_hostname)
+        endpoint_string = serverFromString(reactor, config['ldap-proxy']['endpoint'])
+        return internet.StreamServerEndpointService(endpoint_string, factory)
 
 
 serviceMaker = ProxyServiceMaker()
