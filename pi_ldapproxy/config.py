@@ -10,8 +10,7 @@ endpoint = string
 realm = string(default='')
 
 [ldap-backend]
-host = string
-port = integer
+endpoint = string
 use-tls = boolean
 
 [ldap-proxy]

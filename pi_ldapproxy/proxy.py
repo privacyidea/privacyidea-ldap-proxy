@@ -22,8 +22,6 @@ from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
 
 log = Logger()
 
-PROXIED_ENDPOINT_TEMPLATE = 'tcp:host={backend[host]}:port={backend[port]}'
-
 class ProxyError(Exception):
     pass
 
@@ -190,7 +188,7 @@ class ProxyServerFactory(protocol.ServerFactory):
             print 'LDAP over TLS is currently unsupported. Exiting.'
             sys.exit(1)
 
-        self.proxied_endpoint_string = PROXIED_ENDPOINT_TEMPLATE.format(backend=config['ldap-backend'])
+        self.proxied_endpoint_string = config['ldap-backend']['endpoint']
         self.validate_url = config['privacyidea']['endpoint']
         self.validate_realm = config['privacyidea']['realm']
 
