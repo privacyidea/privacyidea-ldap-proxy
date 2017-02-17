@@ -6,7 +6,7 @@ import validate
 #: This is useful not only to report errors to the user, but also to perform automatic type conversion.
 CONFIG_SPEC = """
 [privacyidea]
-endpoint = string
+instance = string
 realm = string(default='')
 
 [ldap-backend]

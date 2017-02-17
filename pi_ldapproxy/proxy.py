@@ -26,6 +26,8 @@ class ProxyError(Exception):
     pass
 
 
+VALIDATE_URL_TEMPLATE = '{}validate/check'
+
 class TwoFactorAuthenticationProxy(ProxyBase):
     def request_validate(self, url, user, realm, password):
         """
@@ -189,7 +191,11 @@ class ProxyServerFactory(protocol.ServerFactory):
             sys.exit(1)
 
         self.proxied_endpoint_string = config['ldap-backend']['endpoint']
-        self.validate_url = config['privacyidea']['endpoint']
+        self.privacyidea_instance = config['privacyidea']['instance']
+        # Construct the validate url from the instance location
+        if self.privacyidea_instance[-1] != '/':
+            self.privacyidea_instance += '/'
+        self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance)
         self.validate_realm = config['privacyidea']['realm']
 
         self.service_account_dn = config['service-account']['dn']
