@@ -12,6 +12,7 @@ realm = string(default='')
 [ldap-backend]
 endpoint = string
 use-tls = boolean
+test-connection = boolean(default=True)
 
 [ldap-proxy]
 endpoint = string

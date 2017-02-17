@@ -232,6 +232,9 @@ class ProxyServerFactory(protocol.ServerFactory):
         else:
             self.bind_cache = None
 
+        if config['ldap-backend']['test-connection']:
+            self.test_connection()
+
     @defer.inlineCallbacks
     def connect_service_account(self):
         """
@@ -290,3 +293,19 @@ class ProxyServerFactory(protocol.ServerFactory):
         proto.clientConnector = client_connector
         proto.use_tls = self.use_tls
         return proto
+
+    @defer.inlineCallbacks
+    def test_connection(self):
+        """
+        Connect to the LDAP backend using an anonymous bind and unbind after that.
+        :return: a Deferred that fires True or False
+        """
+        try:
+            client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
+            yield client.bind()
+            yield client.unbind()
+            log.info('Successfully tested the connection to the LDAP backend using an anonymous bind')
+            defer.returnValue(True)
+        except Exception, e:
+            log.failure('Could not connect to LDAP backend', exception=e)
+            defer.returnValue(False)
