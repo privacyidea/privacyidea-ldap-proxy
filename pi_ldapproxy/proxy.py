@@ -29,6 +29,9 @@ class ProxyError(Exception):
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
+    #: Specifies whether we have sent a bind request to the LDAP backend at some point
+    bound = False
+
     def request_validate(self, url, user, realm, password):
         """
         Issue an HTTP request to authenticate an user with a password in a given
@@ -86,6 +89,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                         # TODO: Is this the right place to bind the service user?
                         if self.factory.bind_service_account:
                             yield self.bind_service_account()
+                            self.bound = True
                     else:
                         result = (False, 'Failed to authenticate.')
                 else:
@@ -145,6 +149,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 return None
             elif request.dn in self.factory.passthrough_binds:
                 log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
+                self.bound = True
                 return request, controls
             elif self.factory.is_bind_cached(request.dn, request.auth):
                 log.info('Combination found in bind cache, authenticating as service user ...')
@@ -169,6 +174,11 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # Apparently, we can forward the search request.
             # Assuming `bind-service-account` is enabled and the privacyIDEA authentication was successful,
             # the service account is already authenticated for `self.client`.
+            return request, controls
+        elif isinstance(request, pureldap.LDAPUnbindRequest) and self.bound:
+            # If we have sent a bind request to the LDAP backend in the past, we will forward
+            # the incoming unbind request.
+            # TODO: What if we receive multiple unbind requests?
             return request, controls
         else:
             log.info("{class_!r} received, rejecting.", class_=request.__class__.__name__)
