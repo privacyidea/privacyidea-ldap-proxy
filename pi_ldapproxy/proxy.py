@@ -244,8 +244,13 @@ class ProxyServerFactory(protocol.ServerFactory):
         client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
         if self.use_tls:
             client = yield client.startTLS()
-        yield client.bind(self.service_account_dn, self.service_account_password)
-        # TODO: What to do about an exception here?
+        try:
+            yield client.bind(self.service_account_dn, self.service_account_password)
+        except ldaperrors.LDAPException, e:
+            # Call unbind() here if an exception occurs: Otherwise, Twisted will keep the file open
+            # and slowly run out of open files.
+            yield client.unbind()
+            raise e
         defer.returnValue(client)
 
     def resolve_user(self, dn):
