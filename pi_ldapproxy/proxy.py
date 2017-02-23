@@ -2,6 +2,7 @@
 import argparse
 import json
 import sys
+import re
 import urllib
 from cStringIO import StringIO
 from functools import partial
@@ -25,7 +26,7 @@ log = Logger()
 class ProxyError(Exception):
     pass
 
-
+DN_BLACKLIST = map(re.compile, ['^dn=uid='])
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
@@ -146,6 +147,9 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         if isinstance(request, pureldap.LDAPBindRequest):
             if request.dn == '':
                 self.send_bind_response((False, 'Anonymous binds are not supported.'), request, reply)
+                return None
+            elif self.factory.is_dn_blacklisted(request.dn):
+                self.send_bind_response((False, 'DN is blacklisted.'), request, reply)
                 return None
             elif request.dn in self.factory.passthrough_binds:
                 log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
@@ -283,6 +287,14 @@ class ProxyServerFactory(protocol.ServerFactory):
             return self.bind_cache.is_cached(dn, password)
         else:
             return False
+
+    def is_dn_blacklisted(self, dn):
+        """
+        Check whether the given distinguished name is part of our blacklist
+        :param dn: Distinguished Name as string
+        :return: a boolean
+        """
+        return any(pattern.match(dn) for pattern in DN_BLACKLIST)
 
     def buildProtocol(self, addr):
         """
