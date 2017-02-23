@@ -47,14 +47,13 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         body = urllib.urlencode({'user': user,
                                 'realm': realm,
                                 'pass': password})
-        # TODO: HTTPS!
         # TODO: Is this really the preferred way to pass a string body?
         producer = FileBodyProducer(StringIO(body))
         d = self.factory.agent.request('POST',
                            url,
                            Headers({
                                'Content-Type': ['application/x-www-form-urlencoded'],
-                               'User-Agent': ['LDAP Proxy']
+                               'User-Agent': ['privacyIDEA LDAP Proxy']
                            }),
                            producer)
         return d
