@@ -81,6 +81,10 @@ class LookupMappingStrategy(UserMappingStrategy):
             # However, unbind first
             yield client.unbind()
             raise UserMappingError(dn)
+        except ldaperrors.LDAPException, e:
+            # Unbind before rethrowing
+            yield client.unbind()
+            raise e
         else:
             # Assuming we found one, extract the login name attribute
             assert len(results) == 1
@@ -89,7 +93,6 @@ class LookupMappingStrategy(UserMappingStrategy):
             (login_name,) = login_name_set
             yield client.unbind()
             defer.returnValue(login_name)
-        # TODO: For other kinds of LDAP errors (apart from LDAPNoSuchObject), client.unbind() is never called
 
 MAPPING_STRATEGIES = {
     'match': MatchMappingStrategy,
