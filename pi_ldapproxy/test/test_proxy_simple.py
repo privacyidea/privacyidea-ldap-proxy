@@ -11,6 +11,11 @@ class TestProxySimple(ProxyTestCase):
         'hugo@default': 'secret'
     }
 
+    def test_anonymous_bind_fails(self):
+        server, client = self.create_server_and_client([])
+        d = client.bind('', '')
+        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+
     @defer.inlineCallbacks
     def test_bind_succeeds(self):
         server, client = self.create_server_and_client([])

@@ -44,7 +44,7 @@ instance = http://example.com
 realm = default
 
 [ldap-backend]
-endpoint = tcp:host=example.com:port=1337
+endpoint = tcp:host=example.com:port=1337:timeout=1
 use-tls = false
 test-connection = false
 
@@ -85,6 +85,18 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
             for key, value in contents.iteritems():
                 config[section][key] = value
         return config
+
+    def inject_service_account_server(self, *responses):
+        client = MockLDAPClient(*responses)
+
+        @defer.inlineCallbacks
+        def _factory_connect_service_account():
+            client.connectionMade() # TODO: Necessary here?
+            yield client.bind(self.factory.service_account_dn, self.factory.service_account_password)
+            defer.returnValue(client)
+
+        self.factory.connect_service_account = _factory_connect_service_account
+        return client
 
     def setUp(self):
         self.factory = ProxyServerFactory(self.get_config())
