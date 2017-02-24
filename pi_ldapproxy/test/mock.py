@@ -1,5 +1,6 @@
 import json
 
+import httplib
 from ldaptor import testutil
 from ldaptor.protocols import pureldap
 from ldaptor.protocols.ldap.ldapclient import LDAPClient
@@ -27,6 +28,8 @@ class MockResponse(Response):
 class MockPrivacyIDEA(object):
     def __init__(self, credentials):
         self.credentials = credentials
+        self.status = True
+        self.response_code = 200
 
     def is_password_correct(self, user, realm, password):
         key = '{}@{}'.format(user, realm)
@@ -45,14 +48,16 @@ class MockPrivacyIDEA(object):
             return False
 
     def build_response(self, result):
-        body = json.dumps({
+        data = {
             'result': {
-                'status': True,
-                'value': result,
+                'status': self.status,
             },
-        })
+        }
+        if self.status:
+            data['result']['value'] = result
+        body = json.dumps(data)
         headers = Headers(SUCCESSFUL_HEADERS)
-        response = MockResponse(b'HTTP/1.1', 200, 'OK', headers, body)
+        response = MockResponse(b'HTTP/1.1', self.response_code, httplib.responses[self.response_code], headers, body)
         return response
 
     def authenticate(self, url, user, realm, password):
