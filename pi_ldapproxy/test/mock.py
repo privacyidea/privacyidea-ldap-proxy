@@ -1,5 +1,8 @@
 import json
 
+from ldaptor import testutil
+from ldaptor.protocols import pureldap
+from ldaptor.protocols.ldap.ldapclient import LDAPClient
 from twisted.internet import defer
 from twisted.web.client import Response
 from twisted.web.http_headers import Headers
@@ -58,3 +61,9 @@ class MockPrivacyIDEA(object):
 
     def inject(self, server):
         server.request_validate = self.authenticate
+
+
+class MockLDAPClient(testutil.LDAPClientTestDriver):
+    def bind(self, dn, auth):
+        self.send(pureldap.LDAPBindRequest(dn=dn, auth=auth))
+

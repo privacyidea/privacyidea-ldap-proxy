@@ -36,7 +36,7 @@ from twisted.internet.task import LoopingCall
 
 from pi_ldapproxy.config import CONFIG_SPEC
 from pi_ldapproxy.proxy import TwoFactorAuthenticationProxy, ProxyServerFactory
-from pi_ldapproxy.test.mock import MockPrivacyIDEA
+from pi_ldapproxy.test.mock import MockPrivacyIDEA, MockLDAPClient
 
 BASE_CONFIG = """
 [privacyidea]
@@ -106,7 +106,7 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
         """
         protocol = kwds.get("protocol", TwoFactorAuthenticationProxy)
         server = protocol()
-        clientTestDriver = testutil.LDAPClientTestDriver(*responses)
+        clientTestDriver = MockLDAPClient(*responses)
 
         def simulateConnectToServer():
             d = defer.Deferred()
