@@ -1,128 +1,13 @@
-# Contains code from ldaptor (createServer from ldaptor/testutil.py),
-# which is licensed under the MIT license as follows.
-# Copyright (c) 2002-2014, Ldaptor Contributors (see AUTHORS)
-#
-# Ldaptor is licensed under the MIT license for the majority of the
-# files, with exceptions listed below.
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-import configobj
-import twisted
-import validate
-from ldaptor import testutil
 from ldaptor.protocols.ldap import ldaperrors
-from ldaptor.protocols.ldap.ldapclient import LDAPClient
-from ldaptor.test.util import returnConnected, IOPump
 from twisted.internet import defer
-from twisted.internet import reactor
-from twisted.internet.task import LoopingCall
 
-from pi_ldapproxy.config import CONFIG_SPEC
-from pi_ldapproxy.proxy import TwoFactorAuthenticationProxy, ProxyServerFactory
-from pi_ldapproxy.test.mock import MockPrivacyIDEA
+from pi_ldapproxy.test.util import ProxyTestCase
 
-CONFIG = """
-[privacyidea]
-instance = http://example.com
-realm = default
 
-[ldap-backend]
-endpoint = tcp:host=example.com:port=1337
-use-tls = false
-test-connection = false
-
-[service-account]
-dn = "uid=service,cn=users,dc=test,dc=local"
-password = service-secret
-
-[ldap-proxy]
-endpoint = tcp:1389
-passthrough-binds = "cn=passthrough,cn=users,dc=test,dc=local"
-bind-service-account = false
-allow-search = false
-
-[user-mapping]
-#strategy = lookup
-#attribute = uid
-strategy = match
-pattern = "uid=([^,]+),cn=users,dc=test,dc=local"
-
-[bind-cache]
-enabled = false
-"""
-
-def load_test_config():
-    config = configobj.ConfigObj(CONFIG.splitlines(), configspec=CONFIG_SPEC.splitlines())
-    validator = validate.Validator()
-    result = config.validate(validator, preserve_errors=True)
-    assert result
-    return config
-
-class ProxyTest(twisted.trial.unittest.TestCase):
-    def setUp(self):
-        self.factory = ProxyServerFactory(load_test_config())
-        self.pump_call = LoopingCall(self.pump_all)
-        self.pump_call.start(0.1)
-
-        self.privacyidea = MockPrivacyIDEA({
-            'hugo@default': 'secret'
-        })
-
-    def tearDown(self):
-        self.pump_call.stop()
-
-    def pump_all(self):
-        for pump in IOPump.active:
-            pump.pump()
-
-    def create_server(self, responses, **kwds):
-        """
-        Create a server for each test.
-        """
-        protocol = kwds.get("protocol", TwoFactorAuthenticationProxy)
-        server = protocol()
-        clientTestDriver = testutil.LDAPClientTestDriver(*responses)
-
-        def simulateConnectToServer():
-            d = defer.Deferred()
-
-            def onConnect():
-                clientTestDriver.connectionMade()
-                d.callback(clientTestDriver)
-
-            reactor.callLater(0, onConnect)
-            return d
-
-        clientConnector = kwds.get('clientConnector', simulateConnectToServer)
-        server.clientConnector = clientConnector
-        server.factory = self.factory
-        server.clientTestDriver = clientTestDriver
-        self.privacyidea.inject(server)
-        return server
-
-    def create_server_and_client(self, responses, **kwds):
-        client = LDAPClient()
-        server = self.create_server(responses, **kwds)
-        returnConnected(server, client)
-        return server, client
+class TestProxy(ProxyTestCase):
+    privacyidea_credentials = {
+        'hugo@default': 'secret'
+    }
 
     @defer.inlineCallbacks
     def test_bind_succeeds(self):
