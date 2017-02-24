@@ -49,8 +49,7 @@ class TestProxyUserBind(ProxyTestCase):
             pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
         ])
         d = client.bind(dn, 'wrong')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
-        return d
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
 class TestProxyUserBindNoSearch(ProxyTestCase):
     privacyidea_credentials = {
@@ -81,7 +80,7 @@ class TestProxyUserBindNoSearch(ProxyTestCase):
         # Try to perform a simple search in the context of the service account
         entry = LDAPEntry(client, dn)
         d = entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_baseObject)
-        self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
+        yield self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
 
 class TestProxyPassthroughSearch(ProxyTestCase):
     privacyidea_credentials = {
@@ -98,14 +97,17 @@ class TestProxyPassthroughSearch(ProxyTestCase):
     @defer.inlineCallbacks
     def test_user_search_fails(self):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
-        server, client = self.create_server_and_client()
+        server, client = self.create_server_and_client([
+            # TODO: Would the backend actually answer like that?
+            pureldap.LDAPSearchResultDone(ldaperrors.LDAPInsufficientAccessRights.resultCode),
+        ])
         yield client.bind(dn, 'secret')
         # Assert that there was no traffic between Proxy<->Backend
         server.client.assertNothingSent()
         # Try to perform a simple search in the context of the service account
         entry = LDAPEntry(client, dn)
         d = entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_baseObject)
-        self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
+        yield self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
 
     @defer.inlineCallbacks
     def test_passthrough_account_search_succeeds(self):

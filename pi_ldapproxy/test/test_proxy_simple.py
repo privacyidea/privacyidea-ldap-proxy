@@ -14,7 +14,7 @@ class TestProxySimple(ProxyTestCase):
     def test_anonymous_bind_fails(self):
         server, client = self.create_server_and_client([])
         d = client.bind('', '')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
     @defer.inlineCallbacks
     def test_bind_succeeds(self):
@@ -24,22 +24,22 @@ class TestProxySimple(ProxyTestCase):
     def test_bind_fails_wrong_password(self):
         server, client = self.create_server_and_client([])
         d = client.bind('uid=hugo,cn=users,dc=test,dc=local', 'wrong')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
     def test_bind_fails_unknown_user(self):
         server, client = self.create_server_and_client([])
         d = client.bind('uid=unknown,cn=users,dc=test,dc=local', 'secret')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
     def test_bind_fails_no_matching_dn(self):
         server, client = self.create_server_and_client([])
         d = client.bind('uid=hugo,cn=users,dc=somewhere-else,dc=local', 'secret')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
     def test_bind_fails_invalid_dn(self):
         server, client = self.create_server_and_client([])
         d = client.bind('dn=uid=hugo,cn=users,dc=test,dc=local', 'secret')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
     @defer.inlineCallbacks
     def test_passthrough_bind_succeeds(self):
@@ -52,7 +52,7 @@ class TestProxySimple(ProxyTestCase):
     def test_passthrough_bind_fails(self):
         server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=49)])
         d = client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
-        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
     @defer.inlineCallbacks
     def test_passthrough_account_search_fails(self):
@@ -60,4 +60,4 @@ class TestProxySimple(ProxyTestCase):
         yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
         entry = LDAPEntry(client, 'cn=users,dc=test,dc=local')
         d = entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
-        self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
+        yield self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
