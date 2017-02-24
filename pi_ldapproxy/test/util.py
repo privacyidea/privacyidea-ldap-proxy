@@ -92,9 +92,14 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
         self.pump_call.start(0.1)
 
         self.privacyidea = MockPrivacyIDEA(self.privacyidea_credentials)
+        self.pumps = set()
 
     def tearDown(self):
         self.pump_call.stop()
+        # remove all pumps that have been created
+        for pump in self.pumps:
+            IOPump.active.remove(pump)
+        self.pumps = set()
 
     def pump_all(self):
         for pump in IOPump.active:
@@ -128,5 +133,5 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
     def create_server_and_client(self, *responses, **kwds):
         client = LDAPClient()
         server = self.create_server(*responses, **kwds)
-        returnConnected(server, client)
+        self.pumps.add(returnConnected(server, client))
         return server, client
