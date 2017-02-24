@@ -1,10 +1,11 @@
+from ldaptor.protocols import pureldap
 from ldaptor.protocols.ldap import ldaperrors
 from twisted.internet import defer
 
 from pi_ldapproxy.test.util import ProxyTestCase
 
 
-class TestProxy(ProxyTestCase):
+class TestProxySimple(ProxyTestCase):
     privacyidea_credentials = {
         'hugo@default': 'secret'
     }
@@ -34,3 +35,12 @@ class TestProxy(ProxyTestCase):
         d = client.bind('dn=uid=hugo,cn=users,dc=test,dc=local', 'secret')
         self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
+    @defer.inlineCallbacks
+    def test_passthrough_bind_succeeds(self):
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+
+    def test_passthrough_bind_fails(self):
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=49)])
+        d = client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)

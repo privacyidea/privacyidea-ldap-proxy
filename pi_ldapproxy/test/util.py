@@ -54,7 +54,7 @@ password = service-secret
 
 [ldap-proxy]
 endpoint = tcp:1389
-passthrough-binds = "cn=passthrough,cn=users,dc=test,dc=local"
+passthrough-binds = "uid=passthrough,cn=users,dc=test,dc=local"
 bind-service-account = false
 allow-search = false
 
@@ -100,7 +100,7 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
         for pump in IOPump.active:
             pump.pump()
 
-    def create_server(self, responses, **kwds):
+    def create_server(self, *responses, **kwds):
         """
         Create a server for each test.
         """
@@ -125,8 +125,8 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
         self.privacyidea.inject(server)
         return server
 
-    def create_server_and_client(self, responses, **kwds):
+    def create_server_and_client(self, *responses, **kwds):
         client = LDAPClient()
-        server = self.create_server(responses, **kwds)
+        server = self.create_server(*responses, **kwds)
         returnConnected(server, client)
         return server, client
