@@ -4,8 +4,9 @@ from ldaptor.protocols import pureldap
 from ldaptor.protocols.ldap import ldaperrors
 from ldaptor.protocols.ldap.ldapsyntax import LDAPEntry
 from twisted.internet import defer
-from twisted.python import log
+from twisted.logger import Logger
 
+log = Logger()
 
 class UserMappingError(RuntimeError):
     pass
@@ -78,6 +79,9 @@ class LookupMappingStrategy(UserMappingStrategy):
             results = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_baseObject)
             # Assuming we found one, extract the login name attribute
             assert len(results) == 1
+            if self.attribute not in results[0]:
+                log.warn('Unknown lookup attribute: {attribute}', attribute=self.attribute)
+                raise UserMappingError(dn)
             login_name_set = results[0][self.attribute]
             assert len(login_name_set) == 1
             (login_name,) = login_name_set
