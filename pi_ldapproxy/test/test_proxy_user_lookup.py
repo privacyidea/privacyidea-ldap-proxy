@@ -39,3 +39,26 @@ class TestProxyUserLookup(ProxyTestCase):
                               attributes=()),
             'fake-unbind-by-LDAPClientTestDriver'
         )
+
+    def test_missing_attribute(self):
+        dn = 'uid=thegreathugo,cn=users,dc=test,dc=local'
+        server, client = self.create_server_and_client()
+        service_account_client = self.inject_service_account_server([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ], [
+            pureldap.LDAPSearchResultEntry(dn, [('someOtherAttribute', ['hugo'])]),
+            pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
+        ])
+        d = client.bind(dn, 'secret')
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+
+    def test_unknown_user(self):
+        dn = 'uid=thegreathugo,cn=users,dc=test,dc=local'
+        server, client = self.create_server_and_client()
+        service_account_client = self.inject_service_account_server([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ], [
+            pureldap.LDAPSearchResultDone(ldaperrors.LDAPNoSuchObject.resultCode),
+        ])
+        d = client.bind(dn, 'secret')
+        return self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
