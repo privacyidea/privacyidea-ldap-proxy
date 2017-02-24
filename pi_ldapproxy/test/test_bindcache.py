@@ -13,6 +13,8 @@ PASSWORD_OTHER = 'foo'
 class BindCacheTest(unittest.TestCase):
     def test_multiple_entries(self):
         cache = BindCache()
+        clock = task.Clock()
+        cache.callLater = clock.callLater
         cache.add_to_cache(DN, PASSWORD)
         cache.add_to_cache(DN_OTHER, PASSWORD_OTHER)
         self.assertTrue(cache.is_cached(DN, PASSWORD))
@@ -22,6 +24,8 @@ class BindCacheTest(unittest.TestCase):
 
     def test_manual_removal(self):
         cache = BindCache()
+        clock = task.Clock()
+        cache.callLater = clock.callLater
         cache.add_to_cache(DN, PASSWORD)
         cache.add_to_cache(DN_OTHER, PASSWORD_OTHER)
         self.assertTrue(cache.is_cached(DN, PASSWORD))
