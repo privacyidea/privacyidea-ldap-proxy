@@ -47,6 +47,5 @@ def detect_login_preamble(request, response, attribute='objectclass', value_pref
         # TODO: This will be called multiple times for the same search request!
         # i.e. we do not notice if the response has >1 entries
         if marker is not None and isinstance(response, LDAPSearchResultEntry):
-            log.info('Detected login preamble: {!r} ({!r})'.format(response.objectName, marker))
             return (response.objectName, marker)
     return None

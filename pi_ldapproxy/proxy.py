@@ -19,6 +19,7 @@ from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
+from pi_ldapproxy.realmmapping import detect_login_preamble
 from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
 
 log = Logger()
@@ -134,6 +135,24 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         """
         log.info('Binding service account ...')
         yield self.client.bind(self.factory.service_account_dn, self.factory.service_account_password)
+
+    def handleProxiedResponse(self, response, request, controls):
+        """
+        Called by `ProxyBase` to handle the response of an incoming request.
+        :param response:
+        :param request:
+        :param controls:
+        :return:
+        """
+        # Try to detect login preamble
+        if isinstance(request, pureldap.LDAPSearchRequest):
+            # TODO: Read attribute and value prefix from config
+            # TODO: Check that this is connection is bound to the service account?
+            result = detect_login_preamble(request, response)
+            if result is not None:
+                dn, app = result
+                log.info('Detected login preamble: {!r}/{!r}'.format(dn, app))
+        return response
 
     def handleBeforeForwardRequest(self, request, controls, reply):
         """
