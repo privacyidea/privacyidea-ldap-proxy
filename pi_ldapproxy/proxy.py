@@ -95,7 +95,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 else:
                     result = (False, 'Failed to authenticate. privacyIDEA error.')
             else:
-                result = (False, 'Failed to authenticate. Wrong HTTP response')
+                result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
         defer.returnValue(result)
 
     def send_bind_response(self, result, request, reply):
