@@ -93,7 +93,7 @@ class LookupMappingStrategy(UserMappingStrategy):
             # TODO: Are there cases in which we can't unbind?
             yield client.unbind()
 
-MAPPING_STRATEGIES = {
+USER_MAPPING_STRATEGIES = {
     'match': MatchMappingStrategy,
     'lookup': LookupMappingStrategy,
 }

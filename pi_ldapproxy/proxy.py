@@ -20,8 +20,8 @@ from twisted.web.http_headers import Headers
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
 from pi_ldapproxy.preamblecache import PreambleCache
-from pi_ldapproxy.realmmapping import detect_login_preamble
-from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
+from pi_ldapproxy.realmmapping import detect_login_preamble, REALM_MAPPING_STRATEGIES, RealmMappingError
+from pi_ldapproxy.usermapping import USER_MAPPING_STRATEGIES, UserMappingError
 
 log = Logger()
 
@@ -73,31 +73,38 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             user = yield self.factory.resolve_user(request.dn)
         except UserMappingError:
             # User could not be found
-            log.info('Could not resolve {dn!r}', dn=request.dn)
+            log.info('Could not resolve {dn!r} to user', dn=request.dn)
             result = (False, 'Invalid user.')
         else:
-            log.info('Resolved {dn!r} to {user!r}', dn=request.dn, user=user)
-            password = request.auth
-            response = yield self.request_validate(self.factory.validate_url,
-                                                   user,
-                                                   self.factory.validate_realm,
-                                                   password)
-            json_body = yield readBody(response)
-            if response.code == 200:
-                body = json.loads(json_body)
-                if body['result']['status']:
-                    if body['result']['value']:
-                        result = (True, '')
-                        # TODO: Is this the right place to bind the service user?
-                        if self.factory.bind_service_account:
-                            yield self.bind_service_account()
-                            self.bound = True
-                    else:
-                        result = (False, 'Failed to authenticate.')
-                else:
-                    result = (False, 'Failed to authenticate. privacyIDEA error.')
+            try:
+                realm = yield self.factory.resolve_realm(request.dn)
+            except RealmMappingError:
+                log.info('Could not resolve {dn!r} to realm', dn=request.dn)
+                # TODO: too much information revealed?
+                result = (False, 'Could not determine realm.')
             else:
-                result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
+                log.info('Resolved {dn!r} to {user!r}@{realm!r}', dn=request.dn, user=user, realm=realm)
+                password = request.auth
+                response = yield self.request_validate(self.factory.validate_url,
+                                                       user,
+                                                       realm,
+                                                       password)
+                json_body = yield readBody(response)
+                if response.code == 200:
+                    body = json.loads(json_body)
+                    if body['result']['status']:
+                        if body['result']['value']:
+                            result = (True, '')
+                            # TODO: Is this the right place to bind the service user?
+                            if self.factory.bind_service_account:
+                                yield self.bind_service_account()
+                                self.bound = True
+                        else:
+                            result = (False, 'Failed to authenticate.')
+                    else:
+                        result = (False, 'Failed to authenticate. privacyIDEA error.')
+                else:
+                    result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
         defer.returnValue(result)
 
     def send_bind_response(self, result, request, reply):
@@ -226,7 +233,6 @@ class ProxyServerFactory(protocol.ServerFactory):
         if self.privacyidea_instance[-1] != '/':
             self.privacyidea_instance += '/'
         self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance)
-        self.validate_realm = config['privacyidea']['realm']
 
         self.service_account_dn = config['service-account']['dn']
         self.service_account_password = config['service-account']['password']
@@ -241,10 +247,15 @@ class ProxyServerFactory(protocol.ServerFactory):
         self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
 
-        mapping_strategy = MAPPING_STRATEGIES[config['user-mapping']['strategy']]
-        log.info('Using mapping strategy: {strategy!r}', strategy=mapping_strategy)
+        user_mapping_strategy = USER_MAPPING_STRATEGIES[config['user-mapping']['strategy']]
+        log.info('Using user mapping strategy: {strategy!r}', strategy=user_mapping_strategy)
 
-        self.user_mapper = mapping_strategy(self, config['user-mapping'])
+        self.user_mapper = user_mapping_strategy(self, config['user-mapping'])
+
+        realm_mapping_strategy = REALM_MAPPING_STRATEGIES[config['realm-mapping']['strategy']]
+        log.info('Using realm mapping strategy: {strategy!r}', strategy=realm_mapping_strategy)
+
+        self.realm_mapper = realm_mapping_strategy(self, config['realm-mapping'])
 
         enable_bind_cache = config['bind-cache']['enabled']
         if enable_bind_cache:
@@ -288,6 +299,14 @@ class ProxyServerFactory(protocol.ServerFactory):
         :return: a Deferred firing a string (or raising a UserMappingError)
         """
         return self.user_mapper.resolve(dn)
+
+    def resolve_realm(self, dn):
+        """
+        Invoke the realm mapper to find the realm of the user identified by the DN *dn*.
+        :param dn: LDAP distinguished name as string
+        :return: a Deferred firing a string (or raising a RealmMappingError)
+        """
+        return self.realm_mapper.resolve(dn)
 
     def finalize_authentication(self, dn, password):
         """

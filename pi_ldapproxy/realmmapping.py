@@ -49,3 +49,42 @@ def detect_login_preamble(request, response, attribute='objectclass', value_pref
         if marker is not None and isinstance(response, LDAPSearchResultEntry):
             return (response.objectName, marker)
     return None
+
+
+class RealmMappingError(Exception):
+    pass
+
+
+class RealmMappingStrategy(object):
+    """
+    Base class for realm mappers, which are used to determine the user's privacyIDEA realm
+    from an incoming LDAP Bind Request's distinguished name.
+    """
+    def __init__(self, factory, config):
+        """
+        :param factory: `ProxyServerFactory` instance
+        :param config: `[realm-mapping]` section of the config file, as a dictionary
+        """
+        self.factory = factory
+        self.config = config
+
+    def resolve(self, dn):
+        """
+        Given the distinguished name, determine the realm name or raise RealmMappingError.
+        :param dn: DN as string
+        :return: A Deferred which fires the realm name (as a string)
+        """
+        raise NotImplementedError()
+
+
+class StaticMappingStrategy(RealmMappingStrategy):
+    def __init__(self, factory, config):
+        RealmMappingStrategy.__init__(self, factory, config)
+        self.realm = config['realm']
+
+    def resolve(self, dn):
+        return self.realm
+
+REALM_MAPPING_STRATEGIES = {
+    'static': StaticMappingStrategy,
+}

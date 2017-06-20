@@ -7,7 +7,6 @@ import validate
 CONFIG_SPEC = """
 [privacyidea]
 instance = string
-realm = string(default='')
 
 [ldap-backend]
 endpoint = string
@@ -33,6 +32,12 @@ enabled = boolean
 timeout = integer(default=3)
 attribute = string(default='objectclass')
 value-prefix = string(default='App-')
+
+[user-mapping]
+strategy = string
+
+[realm-mapping]
+strategy = string
 """
 
 def report_config_errors(config, result):
