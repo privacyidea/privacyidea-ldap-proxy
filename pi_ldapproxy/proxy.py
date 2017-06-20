@@ -318,6 +318,14 @@ class ProxyServerFactory(protocol.ServerFactory):
             self.bind_cache.add_to_cache(dn, password)
 
     def process_search_response(self, request, response):
+        """
+        Called when ``response`` is sent in response to ``request``. If the preamble cache is enabled,
+        ``detect_login_preamble`` is invoked in order to detect a login preamble. If one was detected,
+        it is added to the preamble cache.
+        :param request: LDAPSearchRequest
+        :param response: LDAPSearchResultEntry or LDAPSearchResultDone
+        :return:
+        """
         if self.preamble_cache is not None:
             result = detect_login_preamble(request,
                                            response,
@@ -325,7 +333,7 @@ class ProxyServerFactory(protocol.ServerFactory):
                                            self.preamble_cache_value_prefix)
             if result is not None:
                 dn, marker = result
-                log.info('Detected login preamble: dn={dn!r}, marker={marker!r}'.format(dn=dn, marker=marker))
+                log.info('Detected login preamble: dn={dn!r}, marker={marker!r}', dn=dn, marker=marker)
                 self.preamble_cache.add_to_cache(dn, marker)
 
     def is_bind_cached(self, dn, password):

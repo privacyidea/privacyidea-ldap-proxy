@@ -1,5 +1,6 @@
 from ldaptor.protocols.pureldap import LDAPFilter_and, LDAPFilter_or, LDAPFilter_equalityMatch, LDAPSearchRequest, \
     LDAPSearchResultEntry
+from twisted.internet import defer
 from twisted.logger import Logger
 
 log = Logger()
@@ -78,27 +79,55 @@ class RealmMappingStrategy(object):
 
 
 class StaticMappingStrategy(RealmMappingStrategy):
+    """
+    `static` mapping strategy: Simply assign the same static realm to all authentication request.
+
+    Configuration:
+        `realm` contains the realm name (can also be empty)
+
+    """
     def __init__(self, factory, config):
         RealmMappingStrategy.__init__(self, factory, config)
         self.realm = config['realm']
 
     def resolve(self, dn):
-        return self.realm
+        return defer.succeed(self.realm)
 
 
 class PreambleMappingStrategy(RealmMappingStrategy):
+    """
+    `preamble` mapping strategy: Look up recent login preambles to find the correct realm.
+    If you use this mapping strategy, make sure the preamble cache is enabled
+    (see `[preamble-cache]`).
+
+    Configuration:
+        `mappings` is a subsection which maps app markers (as witnessed in LDAP search requests)
+        to realm names.
+
+        e.g.:
+
+            [realm-mapping]
+            strategy = preamble
+
+            [[mappings]]
+            myapp-marker = myapp_realm
+    """
     def __init__(self, factory, config):
         RealmMappingStrategy.__init__(self, factory, config)
         self.mappings = config['mappings']
 
     def resolve(self, dn):
+        """
+        Look up ``dn`` in the preamble cache, find the associated marker, look up the assocaited
+        realm in the mapping config, return it.
+        """
         marker = self.factory.preamble_cache.get_cached_marker(dn) # TODO: preamble cache might be None
         if marker is None:
             raise RealmMappingError('No preamble for dn={dn!r}'.format(dn=dn))
         realm = self.mappings.get(marker)
         if realm is None:
             raise RealmMappingError('No mapping for marker={marker!r}'.format(marker=marker))
-        return realm
+        return defer.succeed(realm)
 
 REALM_MAPPING_STRATEGIES = {
     'static': StaticMappingStrategy,
