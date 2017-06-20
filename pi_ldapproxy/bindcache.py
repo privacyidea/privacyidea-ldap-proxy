@@ -37,11 +37,11 @@ class BindCache(object):
         item = (dn, password)
         if item not in self._cache:
             current_time = reactor.seconds()
-            log.info('Adding to cache: dn={dn!r}, time={time!r}', dn=dn, time=current_time)
+            log.info('Adding to bind cache: dn={dn!r}, time={time!r}', dn=dn, time=current_time)
             self._cache[item] = current_time
             self.callLater(self.timeout, self.remove_from_cache, dn, password)
         else:
-            log.info('Already in the cache: dn={dn!r}', dn=dn)
+            log.info('Already in the bind cache: dn={dn!r}', dn=dn)
 
     def remove_from_cache(self, dn, password):
         """
@@ -53,9 +53,9 @@ class BindCache(object):
         item = (dn, password)
         if item in self._cache:
             del self._cache[item]
-            log.info('Removed from cache: dn={dn!r} ({remaining!r} remaining)', dn=dn, remaining=len(self._cache))
+            log.info('Removed from bind cache: dn={dn!r} ({remaining!r} remaining)', dn=dn, remaining=len(self._cache))
         else:
-            log.info("Removal failed as dn={dn!r} cached", dn=dn)
+            log.info("Removal from bind cache failed as dn={dn!r} is not cached", dn=dn)
 
     def is_cached(self, dn, password):
         """

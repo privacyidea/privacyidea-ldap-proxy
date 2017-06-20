@@ -19,6 +19,7 @@ from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
+from pi_ldapproxy.preamblecache import PreambleCache
 from pi_ldapproxy.realmmapping import detect_login_preamble
 from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
 
@@ -148,10 +149,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         if isinstance(request, pureldap.LDAPSearchRequest):
             # TODO: Read attribute and value prefix from config
             # TODO: Check that this is connection is bound to the service account?
-            result = detect_login_preamble(request, response)
-            if result is not None:
-                dn, app = result
-                log.info('Detected login preamble: {!r}/{!r}'.format(dn, app))
+            self.factory.process_search_response(request, response)
         return response
 
     def handleBeforeForwardRequest(self, request, controls, reply):
@@ -254,6 +252,14 @@ class ProxyServerFactory(protocol.ServerFactory):
         else:
             self.bind_cache = None
 
+        enable_preamble_cache = config['preamble-cache']['enabled']
+        if enable_preamble_cache:
+            self.preamble_cache = PreambleCache(config['preamble-cache']['timeout'])
+        else:
+            self.preamble_cache = None
+        self.preamble_cache_attribute = config['preamble-cache']['attribute']
+        self.preamble_cache_value_prefix = config['preamble-cache']['value-prefix']
+
         if config['ldap-backend']['test-connection']:
             self.test_connection()
 
@@ -292,6 +298,17 @@ class ProxyServerFactory(protocol.ServerFactory):
         """
         if self.bind_cache is not None:
             self.bind_cache.add_to_cache(dn, password)
+
+    def process_search_response(self, request, response):
+        if self.preamble_cache is not None:
+            result = detect_login_preamble(request,
+                                           response,
+                                           self.preamble_cache_attribute,
+                                           self.preamble_cache_value_prefix)
+            if result is not None:
+                dn, marker = result
+                log.info('Detected login preamble: dn={dn!r}, marker={marker!r}'.format(dn=dn, marker=marker))
+                self.preamble_cache.add_to_cache(dn, marker)
 
     def is_bind_cached(self, dn, password):
         """

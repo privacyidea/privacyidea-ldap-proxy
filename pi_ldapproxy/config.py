@@ -27,6 +27,12 @@ password = string
 [bind-cache]
 enabled = boolean
 timeout = integer(default=3)
+
+[preamble-cache]
+enabled = boolean
+timeout = integer(default=3)
+attribute = string(default='objectclass')
+value-prefix = string(default='App-')
 """
 
 def report_config_errors(config, result):
