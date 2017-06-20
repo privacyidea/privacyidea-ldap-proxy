@@ -71,40 +71,39 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         result = (False, '')
         try:
             user = yield self.factory.resolve_user(request.dn)
+            realm = yield self.factory.resolve_realm(request.dn)
         except UserMappingError:
             # User could not be found
             log.info('Could not resolve {dn!r} to user', dn=request.dn)
             result = (False, 'Invalid user.')
+        except RealmMappingError:
+            # Realm could not be mapped
+            log.info('Could not resolve {dn!r} to realm', dn=request.dn)
+            # TODO: too much information revealed?
+            result = (False, 'Could not determine realm.')
         else:
-            try:
-                realm = yield self.factory.resolve_realm(request.dn)
-            except RealmMappingError:
-                log.info('Could not resolve {dn!r} to realm', dn=request.dn)
-                # TODO: too much information revealed?
-                result = (False, 'Could not determine realm.')
-            else:
-                log.info('Resolved {dn!r} to {user!r}@{realm!r}', dn=request.dn, user=user, realm=realm)
-                password = request.auth
-                response = yield self.request_validate(self.factory.validate_url,
-                                                       user,
-                                                       realm,
-                                                       password)
-                json_body = yield readBody(response)
-                if response.code == 200:
-                    body = json.loads(json_body)
-                    if body['result']['status']:
-                        if body['result']['value']:
-                            result = (True, '')
-                            # TODO: Is this the right place to bind the service user?
-                            if self.factory.bind_service_account:
-                                yield self.bind_service_account()
-                                self.bound = True
-                        else:
-                            result = (False, 'Failed to authenticate.')
+            log.info('Resolved {dn!r} to {user!r}@{realm!r}', dn=request.dn, user=user, realm=realm)
+            password = request.auth
+            response = yield self.request_validate(self.factory.validate_url,
+                                                   user,
+                                                   realm,
+                                                   password)
+            json_body = yield readBody(response)
+            if response.code == 200:
+                body = json.loads(json_body)
+                if body['result']['status']:
+                    if body['result']['value']:
+                        result = (True, '')
+                        # TODO: Is this the right place to bind the service user?
+                        if self.factory.bind_service_account:
+                            yield self.bind_service_account()
+                            self.bound = True
                     else:
-                        result = (False, 'Failed to authenticate. privacyIDEA error.')
+                        result = (False, 'Failed to authenticate.')
                 else:
-                    result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
+                    result = (False, 'Failed to authenticate. privacyIDEA error.')
+            else:
+                result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
         defer.returnValue(result)
 
     def send_bind_response(self, result, request, reply):
