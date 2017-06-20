@@ -45,7 +45,6 @@ def detect_login_preamble(request, response, attribute='objectclass', value_pref
     if isinstance(request, LDAPSearchRequest) and request.filter:
         # TODO: Check base dn?
         marker = find_app_marker(request.filter, attribute, value_prefix)
-        # TODO: This will be called multiple times for the same search request!
         # i.e. we do not notice if the response has >1 entries
         if marker is not None and isinstance(response, LDAPSearchResultEntry):
             return (response.objectName, marker)

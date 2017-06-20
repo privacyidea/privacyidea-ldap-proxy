@@ -32,8 +32,20 @@ DN_BLACKLIST = map(re.compile, ['^dn=uid='])
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
-    #: Specifies whether we have sent a bind request to the LDAP backend at some point
-    bound = False
+    def __init__(self):
+        ProxyBase.__init__(self)
+        #: Specifies whether we have sent a bind request to the LDAP backend at some point
+        self.bound = False
+        #: If we are currently processing a search request, this stores the last entry
+        #: sent during its response. Otherwise, it is None.
+        self.last_search_response_entry = None
+        #: If we are currently processing a search request, this stores the total number of
+        #: entries sent during its response.
+        # Why do we have these two attributes here? For preamble detection, we need to make sure
+        # that the search request returns only one entry. To achieve that, we could store all entries
+        # in a list. However, this introduces unnecessary space overhead (e.g. if the app queries
+        # all users). Thus, we only store the last entry and the total entry count.
+        self.search_response_entries = 0
 
     def request_validate(self, url, user, realm, password):
         """
@@ -153,9 +165,19 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         """
         # Try to detect login preamble
         if isinstance(request, pureldap.LDAPSearchRequest):
-            # TODO: Read attribute and value prefix from config
-            # TODO: Check that this is connection is bound to the service account?
-            self.factory.process_search_response(request, response)
+            # If we are sending back a search result entry, we just save it for preamble detection
+            # and count the total number of search result entries.
+            if isinstance(response, pureldap.LDAPSearchResultEntry):
+                self.last_search_response_entry = response
+                self.search_response_entries += 1
+            elif isinstance(response, pureldap.LDAPSearchResultDone):
+                # only check for preambles if we returned exactly one search result entry
+                if self.search_response_entries == 1:
+                    # TODO: Check that this is connection is bound to the service account?
+                    self.factory.process_search_response(request, self.last_search_response_entry)
+                # reset counter and storage
+                self.search_response_entries = 0
+                self.last_search_response_entry = None
         return response
 
     def handleBeforeForwardRequest(self, request, controls, reply):
