@@ -85,6 +85,22 @@ class StaticMappingStrategy(RealmMappingStrategy):
     def resolve(self, dn):
         return self.realm
 
+
+class PreambleMappingStrategy(RealmMappingStrategy):
+    def __init__(self, factory, config):
+        RealmMappingStrategy.__init__(self, factory, config)
+        self.mappings = config['mappings']
+
+    def resolve(self, dn):
+        marker = self.factory.preamble_cache.get_cached_marker(dn) # TODO: preamble cache might be None
+        if marker is None:
+            raise RealmMappingError('No preamble for dn={dn!r}'.format(dn=dn))
+        realm = self.mappings.get(marker)
+        if realm is None:
+            raise RealmMappingError('No mapping for marker={marker!r}'.format(marker=marker))
+        return realm
+
 REALM_MAPPING_STRATEGIES = {
     'static': StaticMappingStrategy,
+    'preamble': PreambleMappingStrategy,
 }
