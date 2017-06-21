@@ -163,21 +163,25 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :param controls:
         :return:
         """
-        # Try to detect login preamble
-        if isinstance(request, pureldap.LDAPSearchRequest):
-            # If we are sending back a search result entry, we just save it for preamble detection
-            # and count the total number of search result entries.
-            if isinstance(response, pureldap.LDAPSearchResultEntry):
-                self.last_search_response_entry = response
-                self.search_response_entries += 1
-            elif isinstance(response, pureldap.LDAPSearchResultDone):
-                # only check for preambles if we returned exactly one search result entry
-                if self.search_response_entries == 1:
-                    # TODO: Check that this is connection is bound to the service account?
-                    self.factory.process_search_response(request, self.last_search_response_entry)
-                # reset counter and storage
-                self.search_response_entries = 0
-                self.last_search_response_entry = None
+        try:
+            # Try to detect login preamble
+            if isinstance(request, pureldap.LDAPSearchRequest):
+                # If we are sending back a search result entry, we just save it for preamble detection
+                # and count the total number of search result entries.
+                if isinstance(response, pureldap.LDAPSearchResultEntry):
+                    self.last_search_response_entry = response
+                    self.search_response_entries += 1
+                elif isinstance(response, pureldap.LDAPSearchResultDone):
+                    # only check for preambles if we returned exactly one search result entry
+                    if self.search_response_entries == 1:
+                        # TODO: Check that this is connection is bound to the service account?
+                        self.factory.process_search_response(request, self.last_search_response_entry)
+                    # reset counter and storage
+                    self.search_response_entries = 0
+                    self.last_search_response_entry = None
+        except Exception, e:
+            log.failure("Unhandled error in handleProxiedResponse: {e}", e=e)
+            raise
         return response
 
     def handleBeforeForwardRequest(self, request, controls, reply):
