@@ -1,0 +1,12 @@
+Version 0.2, 2017-06-21
+
+    * Add the app cache which stores the association of user DNs with app markers (#13)
+    * Implement a realm mapper which assigns privacyIDEA realms to authentication requests
+      based on a strategy, the default being the "static" realm mapper strategy (#13)
+    * Add the "app-cache" realm mapper strategy to assign privacyIDEA realms
+      based on app markers retrieved from the app cache (#13)
+    * Improve error reporting in some corner cases (#17)
+
+Version 0.1, 2017-06-19
+
+    * Initial release of the privacyIDEA LDAP Proxy
