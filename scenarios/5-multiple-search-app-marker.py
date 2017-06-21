@@ -1,12 +1,14 @@
 """
-Scenario 4) App uses a service account to look up user's DN. Afterwards, the user sends *two* bind and search
-requests.
+Scenario 5) App uses a service account to look up user's DN. The search request's filter contains a marker which the
+LDAP proxy uses to identify the requesting application.
+Afterwards, the user sends *two* bind and search requests.
 
 Given a username, the app uses a service account to find the user's DN. For that, it performs an LDAP bind followed
 by an LDAP search. After that, it issues a bind on behalf of the user and uses an LDAP search under the user's
 context to retrieve profile information of the user. This is done twice during a 3-second timeframe.
 
 This will only work if the LDAP proxy caches bind requests.
+We cannot determine whether realm mapping is carried out correctly on the client side.
 """
 from pprint import pprint
 
@@ -38,7 +40,7 @@ def perform_login_search(dn, password, ldap_server):
         }
 
 def login(username, password, ldap_server, service_account_dn, service_account_password,
-          base_dn, loginname_attribute, wait_seconds):
+          base_dn, loginname_attribute, wait_seconds, marker_filter):
     """
     Given username, password and a LDAP configuration, attempt a login.
     :param username: login name of the user
@@ -49,9 +51,11 @@ def login(username, password, ldap_server, service_account_dn, service_account_p
     :param base_dn: the base DN under which user search should be performed
     :param loginname_attribute: the attribute which contains the login name
     :param wait_seconds: Wait a specific number of seconds before issuing the second user bind request.
+    :param marker_filter: something like "objectclass=App-something" to implement an app marker
     :return: dictionary with boolean key 'success'. In case of success, it also contains user information.
     """
-    dn = lookup_user(username, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute)
+    dn = lookup_user(username, ldap_server, service_account_dn, service_account_password,
+                     base_dn, loginname_attribute, '(|({attr}={username})(%s))' % marker_filter)
     print 'Given username {!r}, looked up dn: {!r}'.format(username, dn)
     print '[1] Connecting to LDAP server {!r} ...'.format(ldap_server)
     result1 = perform_login_search(dn, password, ldap_server)
@@ -77,4 +81,5 @@ if __name__ == '__main__':
                  config['service-account-password'],
                  config['base-dn'],
                  config['loginname-attribute'],
-                 int(config['wait-seconds'])))
+                 int(config['wait-seconds']),
+                 config['marker-filter']))

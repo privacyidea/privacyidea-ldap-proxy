@@ -41,7 +41,6 @@ from pi_ldapproxy.test.mock import MockPrivacyIDEA, MockLDAPClient
 BASE_CONFIG = """
 [privacyidea]
 instance = http://example.com
-realm = default
 
 [ldap-backend]
 endpoint = tcp:host=example.com:port=1337:timeout=1
@@ -64,6 +63,13 @@ allow-search = false
 strategy = match
 pattern = "uid=([^,]+),cn=users,dc=test,dc=local"
 
+[realm-mapping]
+strategy = static
+realm = default
+
+[app-cache]
+enabled = false
+
 [bind-cache]
 enabled = false
 """
@@ -72,7 +78,7 @@ def load_test_config():
     config = configobj.ConfigObj(BASE_CONFIG.splitlines(), configspec=CONFIG_SPEC.splitlines())
     validator = validate.Validator()
     result = config.validate(validator, preserve_errors=True)
-    assert result
+    assert result == True, "Invalid test config"
     return config
 
 class ProxyTestCase(twisted.trial.unittest.TestCase):

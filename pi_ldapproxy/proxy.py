@@ -19,7 +19,9 @@ from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
-from pi_ldapproxy.usermapping import MAPPING_STRATEGIES, UserMappingError
+from pi_ldapproxy.appcache import AppCache
+from pi_ldapproxy.realmmapping import detect_login_preamble, REALM_MAPPING_STRATEGIES, RealmMappingError
+from pi_ldapproxy.usermapping import USER_MAPPING_STRATEGIES, UserMappingError
 
 log = Logger()
 
@@ -30,8 +32,20 @@ DN_BLACKLIST = map(re.compile, ['^dn=uid='])
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
-    #: Specifies whether we have sent a bind request to the LDAP backend at some point
-    bound = False
+    def __init__(self):
+        ProxyBase.__init__(self)
+        #: Specifies whether we have sent a bind request to the LDAP backend at some point
+        self.bound = False
+        #: If we are currently processing a search request, this stores the last entry
+        #: sent during its response. Otherwise, it is None.
+        self.last_search_response_entry = None
+        #: If we are currently processing a search request, this stores the total number of
+        #: entries sent during its response.
+        # Why do we have these two attributes here? For preamble detection, we need to make sure
+        # that the search request returns only one entry. To achieve that, we could store all entries
+        # in a list. However, this introduces unnecessary space overhead (e.g. if the app queries
+        # all users). Thus, we only store the last entry and the total entry count.
+        self.search_response_entries = 0
 
     def request_validate(self, url, user, realm, password):
         """
@@ -69,16 +83,22 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         result = (False, '')
         try:
             user = yield self.factory.resolve_user(request.dn)
+            realm = yield self.factory.resolve_realm(request.dn)
         except UserMappingError:
             # User could not be found
-            log.info('Could not resolve {dn!r}', dn=request.dn)
+            log.info('Could not resolve {dn!r} to user', dn=request.dn)
             result = (False, 'Invalid user.')
+        except RealmMappingError, e:
+            # Realm could not be mapped
+            log.info('Could not resolve {dn!r} to realm: {message!r}', dn=request.dn, message=e.message)
+            # TODO: too much information revealed?
+            result = (False, 'Could not determine realm.')
         else:
-            log.info('Resolved {dn!r} to {user!r}', dn=request.dn, user=user)
+            log.info('Resolved {dn!r} to {user!r}@{realm!r}', dn=request.dn, user=user, realm=realm)
             password = request.auth
             response = yield self.request_validate(self.factory.validate_url,
                                                    user,
-                                                   self.factory.validate_realm,
+                                                   realm,
                                                    password)
             json_body = yield readBody(response)
             if response.code == 200:
@@ -134,6 +154,31 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         """
         log.info('Binding service account ...')
         yield self.client.bind(self.factory.service_account_dn, self.factory.service_account_password)
+
+    def handleProxiedResponse(self, response, request, controls):
+        """
+        Called by `ProxyBase` to handle the response of an incoming request.
+        :param response:
+        :param request:
+        :param controls:
+        :return:
+        """
+        # Try to detect login preamble
+        if isinstance(request, pureldap.LDAPSearchRequest):
+            # If we are sending back a search result entry, we just save it for preamble detection
+            # and count the total number of search result entries.
+            if isinstance(response, pureldap.LDAPSearchResultEntry):
+                self.last_search_response_entry = response
+                self.search_response_entries += 1
+            elif isinstance(response, pureldap.LDAPSearchResultDone):
+                # only check for preambles if we returned exactly one search result entry
+                if self.search_response_entries == 1:
+                    # TODO: Check that this is connection is bound to the service account?
+                    self.factory.process_search_response(request, self.last_search_response_entry)
+                # reset counter and storage
+                self.search_response_entries = 0
+                self.last_search_response_entry = None
+        return response
 
     def handleBeforeForwardRequest(self, request, controls, reply):
         """
@@ -209,7 +254,6 @@ class ProxyServerFactory(protocol.ServerFactory):
         if self.privacyidea_instance[-1] != '/':
             self.privacyidea_instance += '/'
         self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance)
-        self.validate_realm = config['privacyidea']['realm']
 
         self.service_account_dn = config['service-account']['dn']
         self.service_account_password = config['service-account']['password']
@@ -224,16 +268,29 @@ class ProxyServerFactory(protocol.ServerFactory):
         self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
 
-        mapping_strategy = MAPPING_STRATEGIES[config['user-mapping']['strategy']]
-        log.info('Using mapping strategy: {strategy!r}', strategy=mapping_strategy)
+        user_mapping_strategy = USER_MAPPING_STRATEGIES[config['user-mapping']['strategy']]
+        log.info('Using user mapping strategy: {strategy!r}', strategy=user_mapping_strategy)
 
-        self.user_mapper = mapping_strategy(self, config['user-mapping'])
+        self.user_mapper = user_mapping_strategy(self, config['user-mapping'])
+
+        realm_mapping_strategy = REALM_MAPPING_STRATEGIES[config['realm-mapping']['strategy']]
+        log.info('Using realm mapping strategy: {strategy!r}', strategy=realm_mapping_strategy)
+
+        self.realm_mapper = realm_mapping_strategy(self, config['realm-mapping'])
 
         enable_bind_cache = config['bind-cache']['enabled']
         if enable_bind_cache:
             self.bind_cache = BindCache(config['bind-cache']['timeout'])
         else:
             self.bind_cache = None
+
+        enable_app_cache = config['app-cache']['enabled']
+        if enable_app_cache:
+            self.app_cache = AppCache(config['app-cache']['timeout'])
+        else:
+            self.app_cache = None
+        self.app_cache_attribute = config['app-cache']['attribute']
+        self.app_cache_value_prefix = config['app-cache']['value-prefix']
 
         if config['ldap-backend']['test-connection']:
             self.test_connection()
@@ -264,6 +321,14 @@ class ProxyServerFactory(protocol.ServerFactory):
         """
         return self.user_mapper.resolve(dn)
 
+    def resolve_realm(self, dn):
+        """
+        Invoke the realm mapper to find the realm of the user identified by the DN *dn*.
+        :param dn: LDAP distinguished name as string
+        :return: a Deferred firing a string (or raising a RealmMappingError)
+        """
+        return self.realm_mapper.resolve(dn)
+
     def finalize_authentication(self, dn, password):
         """
         Called when a user was successfully authenticated by privacyIDEA. If the bind cache is enabled,
@@ -273,6 +338,24 @@ class ProxyServerFactory(protocol.ServerFactory):
         """
         if self.bind_cache is not None:
             self.bind_cache.add_to_cache(dn, password)
+
+    def process_search_response(self, request, response):
+        """
+        Called when ``response`` is sent in response to ``request``. If the app cache is enabled,
+        ``detect_login_preamble`` is invoked in order to detect a login preamble. If one was detected,
+        the corresponding entry is added to the app cache.
+        :param request: LDAPSearchRequest
+        :param response: LDAPSearchResultEntry or LDAPSearchResultDone
+        :return:
+        """
+        if self.app_cache is not None:
+            result = detect_login_preamble(request,
+                                           response,
+                                           self.app_cache_attribute,
+                                           self.app_cache_value_prefix)
+            if result is not None:
+                dn, marker = result
+                self.app_cache.add_to_cache(dn, marker)
 
     def is_bind_cached(self, dn, password):
         """

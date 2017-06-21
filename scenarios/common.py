@@ -15,7 +15,8 @@ def construct_dn(username, base_dn, uid_attribute):
     )
 
 
-def lookup_user(username, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute):
+def lookup_user(username,ldap_server, service_account_dn, service_account_password,
+                base_dn, loginname_attribute, filter_template='({attr}={username})'):
     """
     Given an user-provided username, lookup the user's DN. If the user couldn't be found, raise a RuntimeError.
     :param username: login name
@@ -31,7 +32,7 @@ def lookup_user(username, ldap_server, service_account_dn, service_account_passw
     if result:
         print '[Service Account] Successful bind!'
         conn.search(base_dn,
-                    '({attr}={username})'.format(attr=loginname_attribute, username=username),
+                    filter_template.format(attr=loginname_attribute, username=username),
                     attributes=['cn'])
         print '[Service Account] Looking for entry that satisfies {attr}={username}'.format(
             attr=loginname_attribute,
