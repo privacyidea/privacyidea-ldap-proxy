@@ -27,7 +27,7 @@ password = string
 enabled = boolean
 timeout = integer(default=3)
 
-[preamble-cache]
+[app-cache]
 enabled = boolean
 timeout = integer(default=3)
 attribute = string(default='objectclass')

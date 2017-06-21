@@ -19,7 +19,7 @@ from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
 from pi_ldapproxy.config import load_config
-from pi_ldapproxy.preamblecache import PreambleCache
+from pi_ldapproxy.appcache import AppCache
 from pi_ldapproxy.realmmapping import detect_login_preamble, REALM_MAPPING_STRATEGIES, RealmMappingError
 from pi_ldapproxy.usermapping import USER_MAPPING_STRATEGIES, UserMappingError
 
@@ -284,13 +284,13 @@ class ProxyServerFactory(protocol.ServerFactory):
         else:
             self.bind_cache = None
 
-        enable_preamble_cache = config['preamble-cache']['enabled']
-        if enable_preamble_cache:
-            self.preamble_cache = PreambleCache(config['preamble-cache']['timeout'])
+        enable_app_cache = config['app-cache']['enabled']
+        if enable_app_cache:
+            self.app_cache = AppCache(config['app-cache']['timeout'])
         else:
-            self.preamble_cache = None
-        self.preamble_cache_attribute = config['preamble-cache']['attribute']
-        self.preamble_cache_value_prefix = config['preamble-cache']['value-prefix']
+            self.app_cache = None
+        self.app_cache_attribute = config['app-cache']['attribute']
+        self.app_cache_value_prefix = config['app-cache']['value-prefix']
 
         if config['ldap-backend']['test-connection']:
             self.test_connection()
@@ -341,22 +341,21 @@ class ProxyServerFactory(protocol.ServerFactory):
 
     def process_search_response(self, request, response):
         """
-        Called when ``response`` is sent in response to ``request``. If the preamble cache is enabled,
+        Called when ``response`` is sent in response to ``request``. If the app cache is enabled,
         ``detect_login_preamble`` is invoked in order to detect a login preamble. If one was detected,
-        it is added to the preamble cache.
+        the corresponding entry is added to the app cache.
         :param request: LDAPSearchRequest
         :param response: LDAPSearchResultEntry or LDAPSearchResultDone
         :return:
         """
-        if self.preamble_cache is not None:
+        if self.app_cache is not None:
             result = detect_login_preamble(request,
                                            response,
-                                           self.preamble_cache_attribute,
-                                           self.preamble_cache_value_prefix)
+                                           self.app_cache_attribute,
+                                           self.app_cache_value_prefix)
             if result is not None:
                 dn, marker = result
-                log.info('Detected login preamble: dn={dn!r}, marker={marker!r}', dn=dn, marker=marker)
-                self.preamble_cache.add_to_cache(dn, marker)
+                self.app_cache.add_to_cache(dn, marker)
 
     def is_bind_cached(self, dn, password):
         """

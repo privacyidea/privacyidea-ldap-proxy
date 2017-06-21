@@ -67,7 +67,7 @@ pattern = "uid=([^,]+),cn=users,dc=test,dc=local"
 strategy = static
 realm = default
 
-[preamble-cache]
+[app-cache]
 enabled = false
 
 [bind-cache]

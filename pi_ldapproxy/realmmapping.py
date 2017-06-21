@@ -93,11 +93,11 @@ class StaticMappingStrategy(RealmMappingStrategy):
         return defer.succeed(self.realm)
 
 
-class PreambleMappingStrategy(RealmMappingStrategy):
+class AppCacheMappingStrategy(RealmMappingStrategy):
     """
-    `preamble` mapping strategy: Look up recent login preambles to find the correct realm.
-    If you use this mapping strategy, make sure the preamble cache is enabled
-    (see `[preamble-cache]`).
+    `app-cache` mapping strategy: Look up the app cache to find the correct realm.
+    If you use this mapping strategy, make sure the app cache is enabled
+    (see `[app-cache]`).
 
     Configuration:
         `mappings` is a subsection which maps app markers (as witnessed in LDAP search requests)
@@ -106,7 +106,7 @@ class PreambleMappingStrategy(RealmMappingStrategy):
         e.g.:
 
             [realm-mapping]
-            strategy = preamble
+            strategy = app-cache
 
             [[mappings]]
             myapp-marker = myapp_realm
@@ -117,12 +117,12 @@ class PreambleMappingStrategy(RealmMappingStrategy):
 
     def resolve(self, dn):
         """
-        Look up ``dn`` in the preamble cache, find the associated marker, look up the assocaited
+        Look up ``dn`` in the app cache, find the associated marker, look up the associated
         realm in the mapping config, return it.
         """
-        marker = self.factory.preamble_cache.get_cached_marker(dn) # TODO: preamble cache might be None
+        marker = self.factory.app_cache.get_cached_marker(dn) # TODO: app cache might be None
         if marker is None:
-            raise RealmMappingError('No preamble for dn={dn!r}'.format(dn=dn))
+            raise RealmMappingError('No entry in app cache for dn={dn!r}'.format(dn=dn))
         realm = self.mappings.get(marker)
         if realm is None:
             raise RealmMappingError('No mapping for marker={marker!r}'.format(marker=marker))
@@ -130,5 +130,5 @@ class PreambleMappingStrategy(RealmMappingStrategy):
 
 REALM_MAPPING_STRATEGIES = {
     'static': StaticMappingStrategy,
-    'preamble': PreambleMappingStrategy,
+    'app-cache': AppCacheMappingStrategy,
 }
