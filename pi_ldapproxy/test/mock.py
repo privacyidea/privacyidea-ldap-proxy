@@ -30,6 +30,7 @@ class MockPrivacyIDEA(object):
         self.credentials = credentials
         self.status = True
         self.response_code = 200
+        self.authentication_requests = []
 
     def is_password_correct(self, user, realm, password):
         key = '{}@{}'.format(user, realm)
@@ -62,6 +63,7 @@ class MockPrivacyIDEA(object):
 
     def authenticate(self, url, user, realm, password):
         result = self.is_password_correct(user, realm, password)
+        self.authentication_requests.append((user, realm, password, result))
         return defer.succeed(self.build_response(result))
 
     def inject(self, server):
