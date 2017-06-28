@@ -404,10 +404,9 @@ class ProxyServerFactory(protocol.ServerFactory):
         :return: a Deferred that fires True or False
         """
         try:
-            client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
-            yield client.bind()
+            client = yield self.connect_service_account()
             yield client.unbind()
-            log.info('Successfully tested the connection to the LDAP backend using an anonymous bind')
+            log.info('Successfully tested the connection to the LDAP backend using the service account')
             defer.returnValue(True)
         except Exception, e:
             log.failure('Could not connect to LDAP backend', exception=e)
