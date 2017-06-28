@@ -75,15 +75,23 @@ class TwoFactorAuthenticationProxy(ProxyBase):
     @defer.inlineCallbacks
     def authenticate_bind_request(self, request):
         """
-        Given a LDAP bind request, resolve the DN and redirect the request to privacyIDEA.
+        Given a LDAP bind request:
+         * Check if it is contained in the bind cache.
+            If yes: Return success and bind the service account.
+         * If not: resolve the DN and redirect the request to privacyIDEA.
         :param request: An `pureldap.LDAPBindRequest` instance.
         :return: Deferred that fires a tuple ``(success, message)``, whereas ``success`` denotes whether privacyIDEA
         successfully validated the given password. If ``success`` is ``False``, ``message`` contains an error message.
         """
+        #: This 2-tuple has the following semantics:
+        #: If the first element is True, authentication has succeeded! The second element then
+        #: contains the app marker as a string.
+        #: If the first element is False, authentication has failed. The second element then contains
+        #: the error message.
         result = (False, '')
         try:
+            app_marker, realm = yield self.factory.resolve_realm(request.dn)
             user = yield self.factory.resolve_user(request.dn)
-            realm = yield self.factory.resolve_realm(request.dn)
         except UserMappingError:
             # User could not be found
             log.info('Could not resolve {dn!r} to user', dn=request.dn)
@@ -94,34 +102,41 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # TODO: too much information revealed?
             result = (False, 'Could not determine realm.')
         else:
-            log.info('Resolved {dn!r} to {user!r}@{realm!r}', dn=request.dn, user=user, realm=realm)
+            log.info('Resolved {dn!r} to {user!r}@{realm!r} ({marker!r})',
+                     dn=request.dn, user=user, realm=realm, marker=app_marker)
             password = request.auth
-            response = yield self.request_validate(self.factory.validate_url,
-                                                   user,
-                                                   realm,
-                                                   password)
-            json_body = yield readBody(response)
-            if response.code == 200:
-                body = json.loads(json_body)
-                if body['result']['status']:
-                    if body['result']['value']:
-                        result = (True, '')
-                        # TODO: Is this the right place to bind the service user?
-                        if self.factory.bind_service_account:
-                            yield self.bind_service_account()
-                            self.bound = True
-                    else:
-                        result = (False, 'Failed to authenticate.')
-                else:
-                    result = (False, 'Failed to authenticate. privacyIDEA error.')
+            if self.factory.is_bind_cached(request.dn, app_marker, request.auth):
+                log.info('Combination found in bind cache!')
+                result = (True, app_marker)
             else:
-                result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
+                response = yield self.request_validate(self.factory.validate_url,
+                                                       user,
+                                                       realm,
+                                                       password)
+                json_body = yield readBody(response)
+                if response.code == 200:
+                    body = json.loads(json_body)
+                    if body['result']['status']:
+                        if body['result']['value']:
+                            result = (True, app_marker)
+                        else:
+                            result = (False, 'Failed to authenticate.')
+                    else:
+                        result = (False, 'Failed to authenticate. privacyIDEA error.')
+                else:
+                    result = (False, 'Failed to authenticate. Wrong HTTP response ({})'.format(response.code))
+        # TODO: Is this the right place to bind the service user?
+        # (check that result[0] is actually True and not just truthy)
+        if result[0] is True and self.factory.bind_service_account:
+            log.info('Successful authentication, authenticating as service user ...')
+            yield self.bind_service_account()
+            self.bound = True
         defer.returnValue(result)
 
     def send_bind_response(self, result, request, reply):
         """
         Given a bind request, authentication result and a reply function, send a successful or a failed bind response.
-        :param result: A tuple ``(success, message)``
+        :param result: A tuple ``(success, message/app marker)``
         :param request: The corresponding ``LDAPBindRequest``
         :param reply: A function that expects a ``LDAPResult`` object
         :return: nothing
@@ -129,7 +144,8 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         success, message = result
         if success:
             log.info('Sending BindResponse "success"')
-            self.factory.finalize_authentication(request.dn, request.auth)
+            app_marker = message
+            self.factory.finalize_authentication(request.dn, app_marker, request.auth)
             reply(pureldap.LDAPBindResponse(ldaperrors.Success.resultCode))
         else:
             log.info('Sending BindResponse "invalid credentials": {message}', message=message)
@@ -203,14 +219,8 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
                 self.bound = True
                 return request, controls
-            elif self.factory.is_bind_cached(request.dn, request.auth):
-                log.info('Combination found in bind cache, authenticating as service user ...')
-                # TODO: This is a shortcut - maybe do this differently
-                request.dn = self.factory.service_account_dn
-                request.auth = self.factory.service_account_password
-                return request, controls
             else:
-                log.info("BindRequest for {dn!r} received, redirecting to privacyIDEA ...", dn=request.dn)
+                log.info("BindRequest for {dn!r} received ...", dn=request.dn)
                 d = self.authenticate_bind_request(request)
                 d.addCallback(self.send_bind_response, request, reply)
                 d.addErrback(self.send_error_bind_response, request, reply)
@@ -333,15 +343,16 @@ class ProxyServerFactory(protocol.ServerFactory):
         """
         return self.realm_mapper.resolve(dn)
 
-    def finalize_authentication(self, dn, password):
+    def finalize_authentication(self, dn, app_marker, password):
         """
         Called when a user was successfully authenticated by privacyIDEA. If the bind cache is enabled,
         add the corresponding credentials to the bind cache.
         :param dn: Distinguished Name as string
+        :param app_marker: app marker
         :param password: Password as string
         """
         if self.bind_cache is not None:
-            self.bind_cache.add_to_cache(dn, password)
+            self.bind_cache.add_to_cache(dn, app_marker, password)
 
     def process_search_response(self, request, response):
         """
@@ -361,16 +372,17 @@ class ProxyServerFactory(protocol.ServerFactory):
                 dn, marker = result
                 self.app_cache.add_to_cache(dn, marker)
 
-    def is_bind_cached(self, dn, password):
+    def is_bind_cached(self, dn, app_marker, password):
         """
         Check whether the given credentials are found in the bind cache.
         If the bind cache is disabled, this always returns False.
         :param dn: Distinguished Name as string
+        :param app_marker: App marker as string
         :param password: Password as string
         :return: a boolean
         """
         if self.bind_cache is not None:
-            return self.bind_cache.is_cached(dn, password)
+            return self.bind_cache.is_cached(dn, app_marker, password)
         else:
             return False
 
