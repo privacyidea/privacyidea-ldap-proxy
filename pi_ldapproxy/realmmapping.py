@@ -72,7 +72,7 @@ class RealmMappingStrategy(object):
         """
         Given the distinguished name, determine the realm name or raise RealmMappingError.
         :param dn: DN as string
-        :return: A Deferred which fires the realm name (as a string)
+        :return: A Deferred which fires (app marker, realm name) (as strings)
         """
         raise NotImplementedError()
 
@@ -90,7 +90,7 @@ class StaticMappingStrategy(RealmMappingStrategy):
         self.realm = config['realm']
 
     def resolve(self, dn):
-        return defer.succeed(self.realm)
+        return defer.succeed((self.realm, self.realm))
 
 
 class AppCacheMappingStrategy(RealmMappingStrategy):
@@ -126,7 +126,7 @@ class AppCacheMappingStrategy(RealmMappingStrategy):
         realm = self.mappings.get(marker)
         if realm is None:
             raise RealmMappingError('No mapping for marker={marker!r}'.format(marker=marker))
-        return defer.succeed(realm)
+        return defer.succeed((marker, realm))
 
 REALM_MAPPING_STRATEGIES = {
     'static': StaticMappingStrategy,
