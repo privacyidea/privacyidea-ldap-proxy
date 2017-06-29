@@ -85,4 +85,47 @@ class TestProxyUserBind(ProxyTestCase):
                           ('hugo', 'default', 'something-else', False)])
         time.sleep(2) # to clean the reactor
 
+    @defer.inlineCallbacks
+    def test_bind_cache_different_password(self):
+        dn = 'uid=hugo,cn=users,dc=test,dc=local'
+        server, client = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ],
+        [
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account
+        ],
+        )
+        yield client.bind(dn, 'secret')
+        time.sleep(0.5)
+        d = client.bind(dn, 'something-else')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        # two authentication requests to privacyIDEA!
+        self.assertEqual(self.privacyidea.authentication_requests,
+                         [('hugo', 'default', 'secret', True),
+                          ('hugo', 'default', 'something-else', False)])
+        time.sleep(2) # to clean the reactor
 
+    @defer.inlineCallbacks
+    def test_bind_cache_different_app(self):
+        dn = 'uid=hugo,cn=users,dc=test,dc=local'
+        server, client = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ],
+        [
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account
+        ],
+        )
+        yield client.bind(dn, 'secret')
+        time.sleep(0.5)
+        # Monkey-patch the realm mapper (this is suboptimal)
+        _old_resolve = self.factory.realm_mapper.resolve
+        # Model a second app which maps to the same realm
+        self.factory.realm_mapper.resolve = lambda dn: defer.succeed(('other-app', 'default'))
+        yield client.bind(dn, 'secret')
+        # two authentication requests to privacyIDEA!
+        # this means that the second request was not taken from the bind cache
+        self.assertEqual(self.privacyidea.authentication_requests,
+                         [('hugo', 'default', 'secret', True),
+                          ('hugo', 'default', 'secret', True)])
+        time.sleep(2) # to clean the reactor
+        self.factory.realm_mapper.resolve = _old_resolve
