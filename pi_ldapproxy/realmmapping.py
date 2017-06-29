@@ -13,8 +13,8 @@ def find_app_marker(filter, attribute='objectclass', value_prefix='App-'):
     e.g. (objectclass=App-ownCloud).
     It may be nested in &() and |() expressions.
     :param filter: ldaptor filter
-    :param attribute: attribute name whose value contains the app marker
-    :param value_prefix: prefix of the app marker
+    :param attribute: attribute name whose value contains the app marker (matched case-insensitively)
+    :param value_prefix: prefix of the app marker (matched case-sensitively)
     :return: None or an app marker (a string)
     """
     if isinstance(filter, LDAPFilter_and) or isinstance(filter, LDAPFilter_or):
@@ -25,7 +25,7 @@ def find_app_marker(filter, attribute='objectclass', value_prefix='App-'):
                 return app_marker
     elif isinstance(filter, LDAPFilter_equalityMatch):
         # check attribute name and value prefix
-        if filter.attributeDesc.value == attribute:
+        if filter.attributeDesc.value.lower() == attribute.lower():
             value = filter.assertionValue.value
             if value.startswith(value_prefix):
                 return value[len(value_prefix):]

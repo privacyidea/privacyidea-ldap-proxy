@@ -56,7 +56,7 @@ class TestProxyUserBind(ProxyTestCase):
         )
         # Perform a simple search in the context of the service account
         entry = LDAPEntry(client, dn)
-        r = yield entry.search('(|(objectClass=*)(objectclass=App-%s))' % marker, scope=pureldap.LDAP_SCOPE_baseObject)
+        r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-%s))' % marker, scope=pureldap.LDAP_SCOPE_baseObject)
         # sleep half a second and then try to bind as hugo
         time.sleep(0.5)
         yield client.bind(dn, password)

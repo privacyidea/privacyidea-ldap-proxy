@@ -33,7 +33,7 @@ class TestRealmMapping(twisted.trial.unittest.TestCase):
 
         self.assertIsNone(detect_login_preamble(request, pureldap.LDAPSearchResultDone(0)))
 
-        filter = parseFilter('(&(|(objectclass=person)(someAttribute=Foo-someApp))(cn=user123))')
+        filter = parseFilter('(&(|(objectclass=person)(someATTRIBuTE=Foo-someApp))(cn=user123))')
         request = pureldap.LDAPSearchRequest(baseObject='cn=users,dc=test,dc=local',
                                              scope=pureldap.LDAP_SCOPE_wholeSubtree, derefAliases=0,
                                              sizeLimit=0, timeLimit=0, typesOnly=0,
