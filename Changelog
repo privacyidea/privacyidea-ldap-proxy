@@ -1,3 +1,12 @@
+Version 0.3, 2017-07-03
+
+    * Map some attributes case-insensitively (#22)
+    * Test connection using the service account
+    * Bind cache now takes the app marker into account (#20)
+    * Implement LDAPS for Proxy<->Backend connection
+    * Authentication requests handled by the bind cache: Only bind the service user
+      if the corresponding config option is set
+
 Version 0.2, 2017-06-21
 
     * Add the app cache which stores the association of user DNs with app markers (#13)
