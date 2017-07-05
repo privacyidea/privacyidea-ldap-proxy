@@ -14,7 +14,9 @@ from ldaptor.protocols.ldap.ldapconnector import connectToLDAPEndpoint
 from ldaptor.protocols.ldap.proxybase import ProxyBase
 from twisted.internet import defer, protocol, reactor
 from twisted.logger import Logger
-from twisted.web.client import Agent, FileBodyProducer, readBody
+from twisted.internet.ssl import Certificate
+from twisted.python.filepath import FilePath
+from twisted.web.client import Agent, FileBodyProducer, readBody, BrowserLikePolicyForHTTPS
 from twisted.web.http_headers import Headers
 
 from pi_ldapproxy.bindcache import BindCache
@@ -255,7 +257,13 @@ class ProxyServerFactory(protocol.ServerFactory):
     def __init__(self, config):
         # NOTE: ServerFactory.__init__ does not exist?
         # Read configuration options.
-        self.agent = Agent(reactor)
+        if config['privacyidea']['certificate']:
+            certificate = Certificate.loadPEM(FilePath(config['privacyidea']['certificate']).getContent())
+            log.info('Pinning privacyIDEA HTTPS certificate {certificate!r}', certificate=certificate)
+        else:
+            certificate = None
+        https_policy = BrowserLikePolicyForHTTPS(certificate)
+        self.agent = Agent(reactor, https_policy)
         self.use_tls = config['ldap-backend']['use-tls']
         if self.use_tls:
             # TODO: This seems to get lost if we use log.info
