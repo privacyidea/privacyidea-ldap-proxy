@@ -1,0 +1,3 @@
+deploy/ubuntu-config/privacyidea-ldap-proxy.service  /etc/systemd/system/
+deploy/ubuntu-config/proxy.ini                           /etc/privacyidea-ldap-proxy/
+buildenv/*						/opt/privacyidea-ldap-proxy/
