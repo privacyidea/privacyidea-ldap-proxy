@@ -260,8 +260,10 @@ class ProxyServerFactory(protocol.ServerFactory):
         # Read configuration options.
         if config['privacyidea']['verify']:
             if config['privacyidea']['certificate']:
-                certificate = Certificate.loadPEM(FilePath(config['privacyidea']['certificate']).getContent())
-                log.info('Pinning privacyIDEA HTTPS certificate {certificate!r}', certificate=certificate)
+                certificate_path = config['privacyidea']['certificate']
+                certificate = Certificate.loadPEM(FilePath(certificate_path).getContent())
+                log.info('Pinning privacyIDEA HTTPS certificate {certificate!r} from {path!r}',
+                         certificate=certificate, path=certificate_path)
             else:
                 certificate = None
                 log.info('Checking privacyIDEA HTTPS certificate against system certificate store')
