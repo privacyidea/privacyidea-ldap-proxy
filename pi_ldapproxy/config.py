@@ -7,6 +7,8 @@ import validate
 CONFIG_SPEC = """
 [privacyidea]
 instance = string
+certificate = string(default='')
+verify = boolean(default=True)
 
 [ldap-backend]
 endpoint = string
