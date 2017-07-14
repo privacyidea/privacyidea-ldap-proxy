@@ -1,0 +1,23 @@
+Source: privacyidea-ldap-proxy
+Maintainer: NetKnights GmbH <release@netknights.it>
+Section: python
+Priority: optional
+Build-Depends: python-setuptools (>= 0.6b3), python-all (>= 2.7), debhelper (>= 7.4.3), python-setuptools, dh-python
+Standards-Version: 3.9.6
+
+Package: privacyidea-ldap-proxy
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+X-Python-Version: >= 2.7
+Description: Intercepts LDAP Binds to add 2FA to LDAP
+ privacyIDEA: identity, multifactor authentication, authorization.
+ This package contains the python module for privacyIDEA. If you want
+ to run it in a productive webserver you might want to install
+ privacyidea-nginx or privacyidea-apache2.
+ privacyIDEA is an open solution for strong two-factor authentication.
+ privacyIDEA aims to not bind you to any decision of the authentication protocol 
+ or it does not dictate you where your user information should be stored. 
+ This is achieved by its totally modular architecture.
+ privacyIDEA is not only open as far as its modular architecture is concerned. 
+ But privacyIDEA is completely licensed under the AGPLv3.
+

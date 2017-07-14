@@ -1,0 +1,19 @@
+[Unit]
+Description=privacyIDEA LDAP proxy
+
+[Service]
+ExecStart=/opt/privacyidea-ldap-proxy/bin/twistd \
+    --nodaemon \
+    --pidfile=/var/run/privacyidea-ldap-proxy.pid \
+    -u ldapproxy \
+    -g ldapproxy \
+    ldap-proxy \
+    -c /etc/privacyidea-ldap-proxy/proxy.ini
+
+User=root
+Group=root
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
