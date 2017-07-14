@@ -160,3 +160,36 @@ class TestProxyUserBind(ProxyTestCase):
         self.assertEqual(self.privacyidea.authentication_requests,
                          [])
         time.sleep(1) # to clean the reactor
+
+    @defer.inlineCallbacks
+    def test_realm_mapping_fails_fake_search_by_user(self):
+        service_dn = 'uid=passthrough,cn=users,dc=test,dc=local'
+        dn = 'uid=hugo,cn=users,dc=test,dc=local'
+        server, client = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ], [
+            pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
+            pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
+        ], [
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
+        ], [
+            pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]), # hugo's search
+            pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
+        ])
+        yield client.bind(service_dn, 'service-secret')
+        # Assert that Proxy<->Backend uses the correct credentials
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn=service_dn, auth='service-secret'),
+        )
+        # Perform a simple search in the context of the service account
+        entry = LDAPEntry(client, dn)
+        r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-markerSecret))', scope=pureldap.LDAP_SCOPE_baseObject)
+        # sleep half a second and then try to bind as hugo
+        time.sleep(0.5)
+        yield client.bind(dn, 'secret')
+        self.assertEqual(self.privacyidea.authentication_requests,
+                         [('hugo', 'realmSecret', 'secret', True)])
+        # Perform another search in hugo's context
+        r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-markerOfficial))', scope=pureldap.LDAP_SCOPE_baseObject)
+        self.assertTrue(server.factory.app_cache.get_cached_marker(dn) in ('markerSecret', None))
+        time.sleep(1) # to clean the reactor

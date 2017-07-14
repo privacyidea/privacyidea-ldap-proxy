@@ -36,6 +36,9 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         ProxyBase.__init__(self)
         #: Specifies whether we have sent a bind request to the LDAP backend at some point
         self.bound = False
+        #: Specifies whether we forwarded a Bind Request to the LDAP backend because the
+        #: DN was found in passthrough_binds.
+        self.forwarded_passthrough_bind = False
         #: If we are currently processing a search request, this stores the last entry
         #: sent during its response. Otherwise, it is None.
         self.last_search_response_entry = None
@@ -129,6 +132,8 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         # (check that result[0] is actually True and not just truthy)
         if result[0] is True and self.factory.bind_service_account:
             log.info('Successful authentication, authenticating as service user ...')
+            # Reset value in case the connection is re-used
+            self.forwarded_passthrough_bind = False
             yield self.bind_service_account()
             self.bound = True
         defer.returnValue(result)
@@ -189,8 +194,9 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     self.search_response_entries += 1
                 elif isinstance(response, pureldap.LDAPSearchResultDone):
                     # only check for preambles if we returned exactly one search result entry
-                    if self.search_response_entries == 1:
-                        # TODO: Check that this is connection is bound to the service account?
+                    # and if this connection was established in the context of a passthrough bind
+                    # (i.e. an app service account)
+                    if self.search_response_entries == 1 and self.forwarded_passthrough_bind:
                         self.factory.process_search_response(request, self.last_search_response_entry)
                     # reset counter and storage
                     self.search_response_entries = 0
@@ -218,6 +224,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             elif request.dn in self.factory.passthrough_binds:
                 log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
                 self.bound = True
+                self.forwarded_passthrough_bind = True
                 return request, controls
             else:
                 log.info("BindRequest for {dn!r} received ...", dn=request.dn)
