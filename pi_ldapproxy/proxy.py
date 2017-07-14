@@ -24,6 +24,7 @@ from pi_ldapproxy.config import load_config
 from pi_ldapproxy.appcache import AppCache
 from pi_ldapproxy.realmmapping import detect_login_preamble, REALM_MAPPING_STRATEGIES, RealmMappingError
 from pi_ldapproxy.usermapping import USER_MAPPING_STRATEGIES, UserMappingError
+from pi_ldapproxy.util import DisabledVerificationPolicyForHTTPS
 
 log = Logger()
 
@@ -257,12 +258,17 @@ class ProxyServerFactory(protocol.ServerFactory):
     def __init__(self, config):
         # NOTE: ServerFactory.__init__ does not exist?
         # Read configuration options.
-        if config['privacyidea']['certificate']:
-            certificate = Certificate.loadPEM(FilePath(config['privacyidea']['certificate']).getContent())
-            log.info('Pinning privacyIDEA HTTPS certificate {certificate!r}', certificate=certificate)
+        if config['privacyidea']['verify']:
+            if config['privacyidea']['certificate']:
+                certificate = Certificate.loadPEM(FilePath(config['privacyidea']['certificate']).getContent())
+                log.info('Pinning privacyIDEA HTTPS certificate {certificate!r}', certificate=certificate)
+            else:
+                certificate = None
+                log.info('Checking privacyIDEA HTTPS certificate against system certificate store')
+            https_policy = BrowserLikePolicyForHTTPS(certificate)
         else:
-            certificate = None
-        https_policy = BrowserLikePolicyForHTTPS(certificate)
+            log.warn('Not checking the hostname of the privacyIDEA HTTPS certificate!')
+            https_policy = DisabledVerificationPolicyForHTTPS()
         self.agent = Agent(reactor, https_policy)
         self.use_tls = config['ldap-backend']['use-tls']
         if self.use_tls:
