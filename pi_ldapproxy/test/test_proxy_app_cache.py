@@ -46,8 +46,6 @@ class TestProxyUserBind(ProxyTestCase):
         ], [
             pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
             pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
-        ], [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
         ])
         yield client.bind(service_dn, 'service-secret')
         # Assert that Proxy<->Backend uses the correct credentials
@@ -59,7 +57,10 @@ class TestProxyUserBind(ProxyTestCase):
         r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-%s))' % marker, scope=pureldap.LDAP_SCOPE_baseObject)
         # sleep half a second and then try to bind as hugo
         time.sleep(0.5)
-        yield client.bind(dn, password)
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
+        ])
+        yield client2.bind(dn, password)
         self.assertEqual(self.privacyidea.authentication_requests,
                          [('hugo', realm, password, True)])
         time.sleep(1) # to clean the reactor
@@ -82,8 +83,6 @@ class TestProxyUserBind(ProxyTestCase):
         ], [
             pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
             pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
-        ], [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
         ])
         yield client.bind(service_dn, 'service-secret')
         # Assert that Proxy<->Backend uses the correct credentials
@@ -95,7 +94,10 @@ class TestProxyUserBind(ProxyTestCase):
         r = yield entry.search('(|(objectClass=*)(objectclass=App-%s))' % marker, scope=pureldap.LDAP_SCOPE_baseObject)
         # sleep a second and then try to bind as hugo
         time.sleep(0.5)
-        d = client.bind(dn, password)
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
+        ])
+        d = client2.bind(dn, password)
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
         self.assertEqual(self.privacyidea.authentication_requests,
                          [('hugo', realm, password, False)])
@@ -112,8 +114,6 @@ class TestProxyUserBind(ProxyTestCase):
         ], [
             pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
             pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
-        ], [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
         ])
         yield client.bind(service_dn, 'service-secret')
         # Assert that Proxy<->Backend uses the correct credentials
@@ -125,7 +125,10 @@ class TestProxyUserBind(ProxyTestCase):
         r = yield entry.search('(|(objectClass=*)(objectclass=App-%s))' % marker, scope=pureldap.LDAP_SCOPE_baseObject)
         # sleep half a second and then try to bind as hugo
         time.sleep(0.5)
-        d = client.bind(dn, password)
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
+        ])
+        d = client2.bind(dn, password)
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
         self.assertEqual(self.privacyidea.authentication_requests,
                          [])
@@ -142,8 +145,6 @@ class TestProxyUserBind(ProxyTestCase):
         ], [
             pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
             pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
-        ], [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
         ])
         yield client.bind(service_dn, 'service-secret')
         # Assert that Proxy<->Backend uses the correct credentials
@@ -155,7 +156,10 @@ class TestProxyUserBind(ProxyTestCase):
         r = yield entry.search('(|(objectClass=*)(objectclass=App-%s))' % marker, scope=pureldap.LDAP_SCOPE_baseObject)
         # sleep very long and then try to bind as hugo
         time.sleep(2)
-        d = client.bind(dn, password)
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
+        ])
+        d = client2.bind(dn, password)
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
         self.assertEqual(self.privacyidea.authentication_requests,
                          [])
@@ -170,11 +174,6 @@ class TestProxyUserBind(ProxyTestCase):
         ], [
             pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
             pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
-        ], [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
-        ], [
-            pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]), # hugo's search
-            pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
         ])
         yield client.bind(service_dn, 'service-secret')
         # Assert that Proxy<->Backend uses the correct credentials
@@ -186,10 +185,17 @@ class TestProxyUserBind(ProxyTestCase):
         r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-markerSecret))', scope=pureldap.LDAP_SCOPE_baseObject)
         # sleep half a second and then try to bind as hugo
         time.sleep(0.5)
-        yield client.bind(dn, 'secret')
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account (successful hugo bind)
+        ], [
+            pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]), # hugo's search
+            pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
+        ])
+        yield client2.bind(dn, 'secret')
         self.assertEqual(self.privacyidea.authentication_requests,
                          [('hugo', 'realmSecret', 'secret', True)])
         # Perform another search in hugo's context
-        r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-markerOfficial))', scope=pureldap.LDAP_SCOPE_baseObject)
+        entry2 = LDAPEntry(client2, dn)
+        r = yield entry2.search('(|(objectClass=*)(objectcLAsS=App-markerOfficial))', scope=pureldap.LDAP_SCOPE_baseObject)
         self.assertTrue(server.factory.app_cache.get_cached_marker(dn) in ('markerSecret', None))
         time.sleep(1) # to clean the reactor

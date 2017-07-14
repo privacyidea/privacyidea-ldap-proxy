@@ -215,7 +215,11 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :return:
         """
         if isinstance(request, pureldap.LDAPBindRequest):
-            if request.dn == '':
+            if self.bound:
+                log.warn('Rejected a second bind request in the same connection')
+                self.send_bind_response((False, 'Reusing connections currently unsupported.'), request, reply)
+                return None
+            elif request.dn == '':
                 self.send_bind_response((False, 'Anonymous binds are not supported.'), request, reply)
                 return None
             elif self.factory.is_dn_blacklisted(request.dn):
