@@ -1,3 +1,9 @@
+privacyidea-ldap-proxy (0.4.1~dev0-1xenial) xenial; urgency=low
+
+  * Update requirements.txt to fix build on CentOS
+
+ -- NetKnights GmbH <release@netknights.it>  Wed, 02 Aug 2017 13:00:00 +0200
+
 privacyidea-ldap-proxy (0.4~dev0-1xenial) xenial; urgency=low
 
   * Implement HTTPS certificate options for Proxy<->privacyIDEA connection (#27)
