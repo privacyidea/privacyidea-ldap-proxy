@@ -20,6 +20,7 @@ endpoint = string
 passthrough-binds = force_list
 bind-service-account = boolean(default=False)
 allow-search = boolean(default=False)
+forward-anonymous-binds = boolean(default=False)
 
 [service-account]
 dn = string
