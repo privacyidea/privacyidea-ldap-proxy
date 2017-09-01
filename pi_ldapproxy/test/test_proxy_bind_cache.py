@@ -33,14 +33,13 @@ class TestProxyUserBind(ProxyTestCase):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
         server, client = self.create_server_and_client([
             pureldap.LDAPBindResponse(resultCode=0), # for service account
-        ],
-        [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account
-        ],
-        )
+        ])
         yield client.bind(dn, 'secret')
         time.sleep(0.5)
-        yield client.bind(dn, 'secret')
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account
+        ])
+        yield client2.bind(dn, 'secret')
         # but only one authentication request to privacyIDEA!
         self.assertEqual(self.privacyidea.authentication_requests,
                          [('hugo', 'default', 'secret', True)])
@@ -51,14 +50,13 @@ class TestProxyUserBind(ProxyTestCase):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
         server, client = self.create_server_and_client([
             pureldap.LDAPBindResponse(resultCode=0), # for service account
-        ],
-        [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account
-        ],
-        )
+        ])
         yield client.bind(dn, 'secret')
         time.sleep(3) # which cleans the bind cache
-        yield client.bind(dn, 'secret')
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account
+        ])
+        yield client2.bind(dn, 'secret')
         # two authentication requests to privacyIDEA!
         self.assertEqual(self.privacyidea.authentication_requests,
                          [('hugo', 'default', 'secret', True),
@@ -70,14 +68,13 @@ class TestProxyUserBind(ProxyTestCase):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
         server, client = self.create_server_and_client([
             pureldap.LDAPBindResponse(resultCode=0), # for service account
-        ],
-        [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account
-        ],
-        )
+        ])
         yield client.bind(dn, 'secret')
         time.sleep(0.5)
-        d = client.bind(dn, 'something-else')
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ])
+        d = client2.bind(dn, 'something-else')
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
         # two authentication requests to privacyIDEA!
         self.assertEqual(self.privacyidea.authentication_requests,
@@ -90,14 +87,13 @@ class TestProxyUserBind(ProxyTestCase):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
         server, client = self.create_server_and_client([
             pureldap.LDAPBindResponse(resultCode=0), # for service account
-        ],
-        [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account
-        ],
-        )
+        ])
         yield client.bind(dn, 'secret')
         time.sleep(0.5)
-        d = client.bind(dn, 'something-else')
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0), # for service account
+        ])
+        d = client2.bind(dn, 'something-else')
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
         # two authentication requests to privacyIDEA!
         self.assertEqual(self.privacyidea.authentication_requests,
@@ -110,18 +106,17 @@ class TestProxyUserBind(ProxyTestCase):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
         server, client = self.create_server_and_client([
             pureldap.LDAPBindResponse(resultCode=0), # for service account
-        ],
-        [
-            pureldap.LDAPBindResponse(resultCode=0),  # for service account
-        ],
-        )
+        ])
         yield client.bind(dn, 'secret')
         time.sleep(0.5)
+        server2, client2 = self.create_server_and_client([
+            pureldap.LDAPBindResponse(resultCode=0),  # for service account
+        ])
         # Monkey-patch the realm mapper (this is suboptimal)
         _old_resolve = self.factory.realm_mapper.resolve
         # Model a second app which maps to the same realm
         self.factory.realm_mapper.resolve = lambda dn: defer.succeed(('other-app', 'default'))
-        yield client.bind(dn, 'secret')
+        yield client2.bind(dn, 'secret')
         # two authentication requests to privacyIDEA!
         # this means that the second request was not taken from the bind cache
         self.assertEqual(self.privacyidea.authentication_requests,
