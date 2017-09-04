@@ -37,21 +37,8 @@ VALIDATE_URL_TEMPLATE = '{}validate/check'
 class TwoFactorAuthenticationProxy(ProxyBase):
     def __init__(self):
         ProxyBase.__init__(self)
-        #: Specifies whether we have received a Bind Request at some point
-        self.received_bind_request = False
-        #: Specifies whether we forwarded a Bind Request to the LDAP backend because the
-        #: DN was found in passthrough_binds.
-        self.forwarded_passthrough_bind = False
-        #: If we are currently processing a search request, this stores the last entry
-        #: sent during its response. Otherwise, it is None.
-        self.last_search_response_entry = None
-        #: If we are currently processing a search request, this stores the total number of
-        #: entries sent during its response.
-        # Why do we have these two attributes here? For preamble detection, we need to make sure
-        # that the search request returns only one entry. To achieve that, we could store all entries
-        # in a list. However, this introduces unnecessary space overhead (e.g. if the app queries
-        # all users). Thus, we only store the last entry and the total entry count.
-        self.search_response_entries = 0
+        # Set the state initially
+        self.reset_state()
 
     def request_validate(self, url, user, realm, password):
         """
@@ -208,6 +195,28 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             raise
         return response
 
+    def reset_state(self):
+        """
+        Reset the internal state of the connection to its initial state.
+        This is used in case a LDAP conneciton is reused, i.e. more than
+        one bind request is received:
+        """
+        #: Specifies whether we have received a Bind Request at some point
+        self.received_bind_request = False
+        #: Specifies whether we forwarded a Bind Request to the LDAP backend because the
+        #: DN was found in passthrough_binds.
+        self.forwarded_passthrough_bind = False
+        #: If we are currently processing a search request, this stores the last entry
+        #: sent during its response. Otherwise, it is None.
+        self.last_search_response_entry = None
+        #: If we are currently processing a search request, this stores the total number of
+        #: entries sent during its response.
+        # Why do we have these two attributes here? For preamble detection, we need to make sure
+        # that the search request returns only one entry. To achieve that, we could store all entries
+        # in a list. However, this introduces unnecessary space overhead (e.g. if the app queries
+        # all users). Thus, we only store the last entry and the total entry count.
+        self.search_response_entries = 0
+
     def handleBeforeForwardRequest(self, request, controls, reply):
         """
         Called by `ProxyBase` to handle an incoming request.
@@ -221,7 +230,8 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 # We have already received a bind request in this connection!
                 if self.factory.allow_connection_reuse:
                     # We need to reset the state before further processing the request
-                    assert False
+                    log.info('Reusing LDAP connection, resetting state ...')
+                    self.reset_state()
                 else:
                     log.warn('Rejected a second bind request in the same connection')
                     self.send_bind_response((False, 'Reusing connections currently unsupported.'), request, reply)

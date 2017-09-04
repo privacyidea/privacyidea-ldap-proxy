@@ -50,12 +50,40 @@ class TestProxySimple(ProxyTestCase):
         )
 
     @defer.inlineCallbacks
-    def test_reusing_connection_fails(self):
+    def test_reusing_connection_fails1(self):
+        # Scenario 1: Passthrough Bind, User Bind
         server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
         yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
         server.client.assertSent(
             pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
         )
+        d = client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_fails2(self):
+        # Scenario 2: User Bind, Passthrough Bind
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        d = client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_fails3(self):
+        # Scenario 3: Passthrough Bind, Passthrough Bind
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        d = client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
+        )
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_fails4(self):
+        # Scenario 4: User Bind, User Bind
+        server, client = self.create_server_and_client([])
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
         d = client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
@@ -71,3 +99,48 @@ class TestProxySimple(ProxyTestCase):
         entry = LDAPEntry(client, 'cn=users,dc=test,dc=local')
         d = entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
         yield self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
+
+class TestProxyReuse(ProxyTestCase):
+    additional_config = {
+        'ldap-proxy': {
+            'allow-connection-reuse': True,
+            'bind-service-account': True,
+        }
+    }
+    privacyidea_credentials = {
+        'hugo@default': 'secret'
+    }
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_succeeds1(self):
+        # Passthrough Bind, User Bind
+        server, client = self.create_server_and_client(
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ],
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ])
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
+            pureldap.LDAPBindRequest(dn='uid=service,cn=users,dc=test,dc=local', auth='service-secret'),
+        )
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_succeeds2(self):
+        # User Bind, User Bind
+        server, client = self.create_server_and_client(
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ],
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ])
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=service,cn=users,dc=test,dc=local', auth='service-secret'),
+            pureldap.LDAPBindRequest(dn='uid=service,cn=users,dc=test,dc=local', auth='service-secret'),
+        )
