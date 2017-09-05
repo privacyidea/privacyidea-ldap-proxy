@@ -71,3 +71,34 @@ class TestProxySimple(ProxyTestCase):
         entry = LDAPEntry(client, 'cn=users,dc=test,dc=local')
         d = entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
         yield self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
+
+class TestProxyIgnoringReferences(ProxyTestCase):
+    privacyidea_credentials = {
+        'hugo@default': 'secret'
+    }
+    additional_config = {
+        'ldap-proxy': {
+            'ignore-search-result-references': True,
+            'allow-search': True,
+        }
+    }
+
+    @defer.inlineCallbacks
+    def test_ignores_search_result_reference(self):
+        dn = 'uid=hugo,cn=users,dc=test,dc=local'
+        server, client = self.create_server_and_client(
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ],
+            [
+                pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
+                pureldap.LDAPSearchResultReference(), # NOTE: ldaptor does not really support these
+                pureldap.LDAPSearchResultReference(),
+                pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
+            ]
+        )
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        entry = LDAPEntry(client, 'cn=users,dc=test,dc=local')
+        r = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
+        self.assertEqual(len(r), 1)
+        self.assertEqual(r[0].dn, dn)
