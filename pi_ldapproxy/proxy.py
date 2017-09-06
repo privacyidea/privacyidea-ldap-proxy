@@ -223,8 +223,11 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 self.send_bind_response((False, 'Reusing connections currently unsupported.'), request, reply)
                 return None
             elif request.dn == '':
-                self.send_bind_response((False, 'Anonymous binds are not supported.'), request, reply)
-                return None
+                if self.factory.forward_anonymous_binds:
+                    return request, controls
+                else:
+                    self.send_bind_response((False, 'Anonymous binds are not supported.'), request, reply)
+                    return None
             elif self.factory.is_dn_blacklisted(request.dn):
                 self.send_bind_response((False, 'DN is blacklisted.'), request, reply)
                 return None
@@ -305,6 +308,8 @@ class ProxyServerFactory(protocol.ServerFactory):
         if len(self.passthrough_binds) == 1 and self.passthrough_binds[0]  == '':
             self.passthrough_binds = []
         log.info('Passthrough DNs: {binds!r}', binds=self.passthrough_binds)
+
+        self.forward_anonymous_binds = config['ldap-proxy']['forward-anonymous-binds']
 
         self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
