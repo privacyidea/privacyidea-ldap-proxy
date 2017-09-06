@@ -233,8 +233,9 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     log.info('Reusing LDAP connection, resetting state ...')
                     self.reset_state()
                 else:
-                    log.warn('Rejected a second bind request in the same connection')
-                    self.send_bind_response((False, 'Reusing connections currently unsupported.'), request, reply)
+                    log.warn('Rejected a second bind request in the same connection. '
+                             'Please check the `allow-connection-reuse` config option.')
+                    self.send_bind_response((False, 'Reusing connections is disabled.'), request, reply)
                     return None
             self.received_bind_request = True
             if request.dn == '':
