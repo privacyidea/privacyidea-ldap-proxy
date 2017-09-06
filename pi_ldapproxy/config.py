@@ -21,6 +21,7 @@ passthrough-binds = force_list
 bind-service-account = boolean(default=False)
 allow-search = boolean(default=False)
 allow-connection-reuse = boolean(default=False)
+ignore-search-result-references = boolean(default=False)
 forward-anonymous-binds = boolean(default=False)
 
 [service-account]
