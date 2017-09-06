@@ -102,3 +102,18 @@ class TestProxyIgnoringReferences(ProxyTestCase):
         r = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
         self.assertEqual(len(r), 1)
         self.assertEqual(r[0].dn, dn)
+
+class TestProxyForwardAnonymousBind(ProxyTestCase):
+    additional_config = {
+        'ldap-proxy': {
+            'forward-anonymous-binds': True,
+        }
+    }
+
+    @defer.inlineCallbacks
+    def test_anonymous_bind_succeeds(self):
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('', '')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='', auth=''),
+        )
