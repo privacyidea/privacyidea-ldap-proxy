@@ -204,6 +204,13 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     # reset counter and storage
                     self.search_response_entries = 0
                     self.last_search_response_entry = None
+                elif isinstance(response, pureldap.LDAPSearchResultReference):
+                    if self.factory.ignore_search_result_references:
+                        log.info('Ignoring LDAP SEARCH result reference ...')
+                        return None
+                    else:
+                        log.warn('Possibly sending an invalid LDAP SEARCH result reference, '
+                                 'check the ignore-search-result-reference config option for more details.')
         except Exception, e:
             log.failure("Unhandled error in handleProxiedResponse: {e}", e=e)
             raise
@@ -313,6 +320,7 @@ class ProxyServerFactory(protocol.ServerFactory):
 
         self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
+        self.ignore_search_result_references = config['ldap-proxy']['ignore-search-result-references']
 
         user_mapping_strategy = USER_MAPPING_STRATEGIES[config['user-mapping']['strategy']]
         log.info('Using user mapping strategy: {strategy!r}', strategy=user_mapping_strategy)
