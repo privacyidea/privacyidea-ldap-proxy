@@ -37,21 +37,8 @@ VALIDATE_URL_TEMPLATE = '{}validate/check'
 class TwoFactorAuthenticationProxy(ProxyBase):
     def __init__(self):
         ProxyBase.__init__(self)
-        #: Specifies whether we have sent a bind request to the LDAP backend at some point
-        self.bound = False
-        #: Specifies whether we forwarded a Bind Request to the LDAP backend because the
-        #: DN was found in passthrough_binds.
-        self.forwarded_passthrough_bind = False
-        #: If we are currently processing a search request, this stores the last entry
-        #: sent during its response. Otherwise, it is None.
-        self.last_search_response_entry = None
-        #: If we are currently processing a search request, this stores the total number of
-        #: entries sent during its response.
-        # Why do we have these two attributes here? For preamble detection, we need to make sure
-        # that the search request returns only one entry. To achieve that, we could store all entries
-        # in a list. However, this introduces unnecessary space overhead (e.g. if the app queries
-        # all users). Thus, we only store the last entry and the total entry count.
-        self.search_response_entries = 0
+        # Set the state initially
+        self.reset_state()
 
     def request_validate(self, url, user, realm, password):
         """
@@ -138,7 +125,6 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # Reset value in case the connection is re-used
             self.forwarded_passthrough_bind = False
             yield self.bind_service_account()
-            self.bound = True
         defer.returnValue(result)
 
     def send_bind_response(self, result, request, reply):
@@ -216,6 +202,28 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             raise
         return response
 
+    def reset_state(self):
+        """
+        Reset the internal state of the connection to its initial state.
+        This is used in case a LDAP conneciton is reused, i.e. more than
+        one bind request is received:
+        """
+        #: Specifies whether we have received a Bind Request at some point
+        self.received_bind_request = False
+        #: Specifies whether we forwarded a Bind Request to the LDAP backend because the
+        #: DN was found in passthrough_binds.
+        self.forwarded_passthrough_bind = False
+        #: If we are currently processing a search request, this stores the last entry
+        #: sent during its response. Otherwise, it is None.
+        self.last_search_response_entry = None
+        #: If we are currently processing a search request, this stores the total number of
+        #: entries sent during its response.
+        # Why do we have these two attributes here? For preamble detection, we need to make sure
+        # that the search request returns only one entry. To achieve that, we could store all entries
+        # in a list. However, this introduces unnecessary space overhead (e.g. if the app queries
+        # all users). Thus, we only store the last entry and the total entry count.
+        self.search_response_entries = 0
+
     def handleBeforeForwardRequest(self, request, controls, reply):
         """
         Called by `ProxyBase` to handle an incoming request.
@@ -225,11 +233,19 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :return:
         """
         if isinstance(request, pureldap.LDAPBindRequest):
-            if self.bound:
-                log.warn('Rejected a second bind request in the same connection')
-                self.send_bind_response((False, 'Reusing connections currently unsupported.'), request, reply)
-                return None
-            elif request.dn == '':
+            if self.received_bind_request:
+                # We have already received a bind request in this connection!
+                if self.factory.allow_connection_reuse:
+                    # We need to reset the state before further processing the request
+                    log.info('Reusing LDAP connection, resetting state ...')
+                    self.reset_state()
+                else:
+                    log.warn('Rejected a second bind request in the same connection. '
+                             'Please check the `allow-connection-reuse` config option.')
+                    self.send_bind_response((False, 'Reusing connections is disabled.'), request, reply)
+                    return None
+            self.received_bind_request = True
+            if request.dn == '':
                 if self.factory.forward_anonymous_binds:
                     return request, controls
                 else:
@@ -240,7 +256,6 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                 return None
             elif request.dn in self.factory.passthrough_binds:
                 log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
-                self.bound = True
                 self.forwarded_passthrough_bind = True
                 return request, controls
             else:
@@ -261,10 +276,9 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # Assuming `bind-service-account` is enabled and the privacyIDEA authentication was successful,
             # the service account is already authenticated for `self.client`.
             return request, controls
-        elif isinstance(request, pureldap.LDAPUnbindRequest) and self.bound:
-            # If we have sent a bind request to the LDAP backend in the past, we will forward
-            # the incoming unbind request.
-            # TODO: What if we receive multiple unbind requests?
+        elif isinstance(request, pureldap.LDAPUnbindRequest):
+            # We just forward any Unbind Request, regardless of whether we have sent a Bind Request to
+            # the LDAP backend earlier.
             return request, controls
         else:
             log.info("{class_!r} received, rejecting.", class_=request.__class__.__name__)
@@ -320,6 +334,7 @@ class ProxyServerFactory(protocol.ServerFactory):
 
         self.allow_search = config['ldap-proxy']['allow-search']
         self.bind_service_account = config['ldap-proxy']['bind-service-account']
+        self.allow_connection_reuse = config['ldap-proxy']['allow-connection-reuse']
         self.ignore_search_result_references = config['ldap-proxy']['ignore-search-result-references']
 
         user_mapping_strategy = USER_MAPPING_STRATEGIES[config['user-mapping']['strategy']]

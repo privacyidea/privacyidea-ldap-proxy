@@ -50,12 +50,40 @@ class TestProxySimple(ProxyTestCase):
         )
 
     @defer.inlineCallbacks
-    def test_reusing_connection_fails(self):
+    def test_reusing_connection_fails1(self):
+        # Scenario 1: Passthrough Bind, User Bind
         server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
         yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
         server.client.assertSent(
             pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
         )
+        d = client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_fails2(self):
+        # Scenario 2: User Bind, Passthrough Bind
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        d = client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_fails3(self):
+        # Scenario 3: Passthrough Bind, Passthrough Bind
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        d = client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
+        )
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_fails4(self):
+        # Scenario 4: User Bind, User Bind
+        server, client = self.create_server_and_client([])
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
         d = client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
         yield self.assertFailure(d, ldaperrors.LDAPInvalidCredentials)
 
@@ -102,6 +130,103 @@ class TestProxyIgnoringReferences(ProxyTestCase):
         r = yield entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
         self.assertEqual(len(r), 1)
         self.assertEqual(r[0].dn, dn)
+
+class TestProxyReuse(ProxyTestCase):
+    additional_config = {
+        'ldap-proxy': {
+            'allow-connection-reuse': True,
+            'bind-service-account': True,
+        }
+    }
+    privacyidea_credentials = {
+        'hugo@default': 'secret'
+    }
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_succeeds1(self):
+        # Passthrough Bind, User Bind
+        server, client = self.create_server_and_client(
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ],
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ])
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
+            pureldap.LDAPBindRequest(dn='uid=service,cn=users,dc=test,dc=local', auth='service-secret'),
+        )
+
+    @defer.inlineCallbacks
+    def test_reusing_connection_succeeds2(self):
+        # User Bind, User Bind
+        server, client = self.create_server_and_client(
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ],
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ])
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        yield client.bind('uid=hugo,cn=users,dc=test,dc=local', 'secret')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=service,cn=users,dc=test,dc=local', auth='service-secret'),
+            pureldap.LDAPBindRequest(dn='uid=service,cn=users,dc=test,dc=local', auth='service-secret'),
+        )
+
+class TestProxyReuseNoServiceBind(ProxyTestCase):
+    additional_config = {
+        'ldap-proxy': {
+            'allow-connection-reuse': True,
+            'bind-service-account': False,
+            'allow-search': True,
+        }
+    }
+    privacyidea_credentials = {
+        'hugo@default': 'secret'
+    }
+
+    @defer.inlineCallbacks
+    def test_state_reset(self):
+        # Passthrough Bind, User Bind
+        dn = 'uid=hugo,cn=users,dc=test,dc=local'
+        search_response = pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])])
+        server, client = self.create_server_and_client(
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ],
+            [
+                 search_response,
+                 pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
+            ],
+            [
+                pureldap.LDAPBindResponse(resultCode=0)
+            ]
+        )
+        yield client.bind('uid=passthrough,cn=users,dc=test,dc=local', 'some-secret')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'),
+        )
+        # perform a search
+        entry = LDAPEntry(client, dn)
+        r = yield entry.search('(|(objectClass=*)(objectcLAsS=App-markerSecret))', scope=pureldap.LDAP_SCOPE_baseObject)
+        # check that the state is correct
+        self.assertTrue(server.received_bind_request)
+        self.assertTrue(server.forwarded_passthrough_bind)
+        self.assertEqual(server.search_response_entries, 0)
+        self.assertIsNone(server.last_search_response_entry)
+        yield client.bind(dn, 'secret')
+        self.assertEqual(len(server.client.sent), 2)
+        # Check that the bind requests was sent properly
+        self.assertEqual(server.client.sent[0],
+                         pureldap.LDAPBindRequest(dn='uid=passthrough,cn=users,dc=test,dc=local', auth='some-secret'))
+        # check that state is properly reset
+        self.assertTrue(server.received_bind_request)
+        self.assertFalse(server.forwarded_passthrough_bind)
+        self.assertEqual(server.search_response_entries, 0)
+        self.assertIsNone(server.last_search_response_entry)
 
 class TestProxyForwardAnonymousBind(ProxyTestCase):
     additional_config = {
