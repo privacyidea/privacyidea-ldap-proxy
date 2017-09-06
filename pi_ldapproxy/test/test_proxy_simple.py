@@ -196,3 +196,18 @@ class TestProxyReuseNoServiceBind(ProxyTestCase):
         self.assertFalse(server.forwarded_passthrough_bind)
         self.assertEqual(server.search_response_entries, 0)
         self.assertIsNone(server.last_search_response_entry)
+
+class TestProxyForwardAnonymousBind(ProxyTestCase):
+    additional_config = {
+        'ldap-proxy': {
+            'forward-anonymous-binds': True,
+        }
+    }
+
+    @defer.inlineCallbacks
+    def test_anonymous_bind_succeeds(self):
+        server, client = self.create_server_and_client([pureldap.LDAPBindResponse(resultCode=0)])
+        yield client.bind('', '')
+        server.client.assertSent(
+            pureldap.LDAPBindRequest(dn='', auth=''),
+        )
