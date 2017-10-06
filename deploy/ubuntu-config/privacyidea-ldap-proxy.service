@@ -1,5 +1,6 @@
 [Unit]
 Description=privacyIDEA LDAP proxy
+After=network.target
 
 [Service]
 ExecStart=/opt/privacyidea-ldap-proxy/bin/twistd \
