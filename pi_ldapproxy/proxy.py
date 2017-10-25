@@ -297,14 +297,14 @@ class ProxyServerFactory(protocol.ServerFactory):
             if config['privacyidea']['certificate']:
                 certificate_path = config['privacyidea']['certificate']
                 certificate = Certificate.loadPEM(FilePath(certificate_path).getContent())
-                log.info('Pinning privacyIDEA HTTPS certificate {certificate!r} from {path!r}',
+                log.info('privacyIDEA HTTPS certificate will be checked against {certificate!r} from {path!r}',
                          certificate=certificate, path=certificate_path)
             else:
                 certificate = None
-                log.info('Checking privacyIDEA HTTPS certificate against system certificate store')
+                log.info('privacyIDEA HTTPS certificate will be checked against system certificate store')
             https_policy = BrowserLikePolicyForHTTPS(certificate)
         else:
-            log.warn('Not checking the hostname of the privacyIDEA HTTPS certificate!')
+            log.warn('privacyIDEA HTTPS certificate will NOT be checked!')
             https_policy = DisabledVerificationPolicyForHTTPS()
         self.agent = Agent(reactor, https_policy)
         self.use_tls = config['ldap-backend']['use-tls']
