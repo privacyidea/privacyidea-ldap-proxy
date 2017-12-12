@@ -1,3 +1,14 @@
+privacyidea-ldap-proxy (0.5.-1xenial) xenial; urgency=low
+
+    * Make handling of anonymous binds configurable (#31)
+    * Allow connection reuse (#30)
+    * Add an option to ignore SEARCH result references (#32)
+    * Fix systemd service file and its location (#36)
+    * Make errors and example config less confusing
+    * Add case-insensitive option to app cache (#38)
+
+ -- NetKnights GmbH <release@netknights.it>  Tue, 12 Dec 2017 16:30:00 +0200
+
 privacyidea-ldap-proxy (0.4.1~dev0-1xenial) xenial; urgency=low
 
   * Update requirements.txt to fix build on CentOS
