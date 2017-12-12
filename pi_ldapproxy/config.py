@@ -37,6 +37,7 @@ enabled = boolean
 timeout = integer(default=3)
 attribute = string(default='objectclass')
 value-prefix = string(default='App-')
+case-insensitive = boolean(default=False)
 
 [user-mapping]
 strategy = string

@@ -1,7 +1,23 @@
+import functools
+
 from twisted.internet import reactor
 from twisted.logger import Logger
 
 log = Logger()
+
+def case_insensitive_dn(wrapped_function):
+    """
+    This decorator is used in the ``AppCache`` class to implement case-insensitive DN storage.
+    :param wrapped_function: A function accepting ``dn`` as first argument
+    :return: Wrapper function which converts the DN to lowercase before passing it to ``wrapped_function``
+    """
+    @functools.wraps(wrapped_function)
+    def dn_wrapper(self, dn, *args, **kwargs):
+        if self.case_insensitive:
+            dn = dn.lower()
+        return wrapped_function(self, dn, *args, **kwargs)
+    return dn_wrapper
+
 
 class AppCache(object):
     """
@@ -10,15 +26,18 @@ class AppCache(object):
     # (see http://twistedmatrix.com/documents/current/core/howto/trial.html)
     callLater = reactor.callLater
 
-    def __init__(self, timeout):
+    def __init__(self, timeout, case_insensitive=False):
         """
         :param timeout: The association is kept in the cache for this timeframe
+        :param case_insensitive: Convert DNs to lower case before storing them
         """
         self.timeout = timeout
+        self.case_insensitive = case_insensitive
 
         #: Map of dn to tuples (app marker, insertion timestamp)
         self._entries = {}
 
+    @case_insensitive_dn
     def add_to_cache(self, dn, marker):
         """
         Add the entry to the app cache. It will be automatically removed after ``timeout`` seconds.
@@ -27,6 +46,7 @@ class AppCache(object):
         cache failed: ... mapped to ... " log message!
         If an entry for ``dn`` with the same marker exists, the eviction timeout will *not*
         be extended if it is added again.
+        This function respects the ``case_insensitive`` option.
         :param dn: DN
         :param marker: App marker (a string)
         """
@@ -39,11 +59,13 @@ class AppCache(object):
         self._entries[dn] = (marker, current_time)
         self.callLater(self.timeout, self.remove_from_cache, dn, marker)
 
+    @case_insensitive_dn
     def remove_from_cache(self, dn, marker):
         """
         Remove the entry from the app cache. If the DN is mapped to a different marker, a warning is emitted
         and the entry is *not* removed! If the entry does not exist in the app cache, a message is
         written to the log.
+        This function respects the ``case_insensitive`` option.
         :param dn: DN
         :param marker: App marker (a string)
         """
@@ -58,10 +80,12 @@ class AppCache(object):
         else:
             log.info('Removal from app cache failed, as dn={dn!r} is not cached', dn=dn)
 
+    @case_insensitive_dn
     def get_cached_marker(self, dn):
         """
         Retrieve the cached marker for the distinguished name ``dn``. This actually checks that the stored entry
         is still valid. If ``dn`` is not found in the cache, ``None`` is returned and a message is written to the log.
+        This function respects the ``case_insensitive`` option.
         :param dn: DN
         :return: string or None
         """
