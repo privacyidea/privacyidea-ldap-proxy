@@ -3,6 +3,7 @@ from twisted.logger import Logger
 
 log = Logger()
 
+
 class AppCache(object):
     """
     The app cache stores the association of a DN with a so-called "app marker" for a specific timeframe.
@@ -10,11 +11,12 @@ class AppCache(object):
     # (see http://twistedmatrix.com/documents/current/core/howto/trial.html)
     callLater = reactor.callLater
 
-    def __init__(self, timeout):
+    def __init__(self, timeout, case_insensitive=False):
         """
         :param timeout: The association is kept in the cache for this timeframe
         """
         self.timeout = timeout
+        self.case_insensitive = case_insensitive
 
         #: Map of dn to tuples (app marker, insertion timestamp)
         self._entries = {}
@@ -30,6 +32,8 @@ class AppCache(object):
         :param dn: DN
         :param marker: App marker (a string)
         """
+        if self.case_insensitive:
+            dn = dn.lower()
         if dn in self._entries:
             log.info('Entry {dn!r} already cached {marker!r}, overwriting ...',
                      dn=dn, marker=self._entries[dn])
@@ -47,6 +51,8 @@ class AppCache(object):
         :param dn: DN
         :param marker: App marker (a string)
         """
+        if self.case_insensitive:
+            dn = dn.lower()
         if dn in self._entries:
             stored_marker, stored_timestamp = self._entries[dn]
             if stored_marker == marker:
@@ -65,6 +71,8 @@ class AppCache(object):
         :param dn: DN
         :return: string or None
         """
+        if self.case_insensitive:
+            dn = dn.lower()
         if dn in self._entries:
             marker, timestamp = self._entries[dn]
             current_time = reactor.seconds()

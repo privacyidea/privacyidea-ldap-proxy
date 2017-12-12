@@ -355,7 +355,7 @@ class ProxyServerFactory(protocol.ServerFactory):
 
         enable_app_cache = config['app-cache']['enabled']
         if enable_app_cache:
-            self.app_cache = AppCache(config['app-cache']['timeout'])
+            self.app_cache = AppCache(config['app-cache']['timeout'], config['app-cache']['case-insensitive'])
         else:
             self.app_cache = None
         self.app_cache_attribute = config['app-cache']['attribute']
