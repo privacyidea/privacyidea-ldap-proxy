@@ -60,7 +60,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                            url,
                            Headers({
                                'Content-Type': ['application/x-www-form-urlencoded'],
-                               'User-Agent': ['privacyIDEA LDAP Proxy']
+                               'User-Agent': ['privacyIDEA-LDAP-Proxy']
                            }),
                            producer)
         return d
