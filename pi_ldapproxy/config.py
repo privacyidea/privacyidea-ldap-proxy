@@ -12,7 +12,7 @@ verify = boolean(default=True)
 
 [ldap-backend]
 endpoint = string
-use-tls = boolean
+use-tls = boolean(default=False)
 test-connection = boolean(default=True)
 
 [ldap-proxy]
