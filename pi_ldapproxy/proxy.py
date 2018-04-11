@@ -307,11 +307,9 @@ class ProxyServerFactory(protocol.ServerFactory):
             log.warn('privacyIDEA HTTPS certificate will NOT be checked!')
             https_policy = DisabledVerificationPolicyForHTTPS()
         self.agent = Agent(reactor, https_policy)
-        self.use_tls = config['ldap-backend']['use-tls']
-        if self.use_tls:
+        if config['ldap-backend']['use-tls']:
             # TODO: This seems to get lost if we use log.info
-            print 'LDAP over TLS is currently unsupported. Exiting.'
-            sys.exit(1)
+            log.warn('The use-tls config option is deprecated and will be ignored.')
 
         self.proxied_endpoint_string = config['ldap-backend']['endpoint']
         self.privacyidea_instance = config['privacyidea']['instance']
@@ -371,8 +369,6 @@ class ProxyServerFactory(protocol.ServerFactory):
         :return: A Deferred that fires a `LDAPClient` instance
         """
         client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
-        if self.use_tls:
-            client = yield client.startTLS()
         try:
             yield client.bind(self.service_account_dn, self.service_account_password)
         except ldaperrors.LDAPException, e:
@@ -461,7 +457,6 @@ class ProxyServerFactory(protocol.ServerFactory):
                             LDAPClient)
         proto.factory = self
         proto.clientConnector = client_connector
-        proto.use_tls = self.use_tls
         return proto
 
     @defer.inlineCallbacks
