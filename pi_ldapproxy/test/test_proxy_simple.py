@@ -1,7 +1,7 @@
 from ldaptor.protocols import pureldap
 from ldaptor.protocols.ldap import ldaperrors
 from ldaptor.protocols.ldap.ldapsyntax import LDAPEntry
-from twisted.internet import defer
+from twisted.internet import defer, error, reactor
 
 from pi_ldapproxy.test.util import ProxyTestCase
 
@@ -99,6 +99,19 @@ class TestProxySimple(ProxyTestCase):
         entry = LDAPEntry(client, 'cn=users,dc=test,dc=local')
         d = entry.search('(objectClass=*)', scope=pureldap.LDAP_SCOPE_wholeSubtree)
         yield self.assertFailure(d, ldaperrors.LDAPInsufficientAccessRights)
+
+    @defer.inlineCallbacks
+    def test_health_check_closes_connection_to_backend(self):
+        server, client = self.create_server_and_client()
+        server.connectionLost(error.ConnectionDone)
+        # Trick to ensure that the rest of the test is executed after the
+        # fake connection to the backend has been established
+        d = defer.Deferred()
+        reactor.callLater(0, d.callback, None)
+        yield d
+        self.assertIsNone(server.client)
+        self.assertFalse(server.clientTestDriver.connected)
+        self.assertEqual(server.queuedRequests, [])
 
 class TestProxyIgnoringReferences(ProxyTestCase):
     privacyidea_credentials = {

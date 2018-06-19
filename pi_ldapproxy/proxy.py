@@ -40,6 +40,20 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         # Set the state initially
         self.reset_state()
 
+    def _connectedToProxiedServer(self, proto):
+        """
+        Workaround for ldaptor bug #105. In case the application has disconnected before
+        the connection to the LDAP backend has been established, we want to close the
+        connection to the LDAP backend. This works around the problem that health checks
+        may result in leftover sockets.
+        """
+        if not self.connected:
+            log.info('Client has disconnected already, closing connection to LDAP backend ...')
+            proto.transport.loseConnection()
+            self.queuedRequests = []
+        else:
+            ProxyBase._connectedToProxiedServer(self, proto)
+
     def request_validate(self, url, user, realm, password):
         """
         Issue an HTTP request to authenticate an user with a password in a given
