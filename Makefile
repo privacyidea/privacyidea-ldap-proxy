@@ -50,4 +50,6 @@ builddeb:
 	################# Build
 	(cd DEBUILD/privacyidea-ldap-proxy.org; debuild --no-lintian)
 
+pypi:
+	python setup.py sdist upload
 
