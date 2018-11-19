@@ -1,3 +1,11 @@
+Version 0.6, 2018-11-19
+
+  * Close connection to backend in case of health checks (#44)
+  * Completely disable hostname validation if verify = false (#42)
+  * Set User-Agent to "privacyIDEA-LDAP-Proxy".
+  * Improve comments, add notes about configuring LDAPS and 
+    deprecate confusing ``use-tls`` option.
+
 Version 0.5, 2017-12-12
 
     * Make handling of anonymous binds configurable (#31)
