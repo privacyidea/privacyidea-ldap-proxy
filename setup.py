@@ -1,4 +1,15 @@
+import sys
 from setuptools import setup
+
+def get_file_contents(file_path):
+    """Get the context of the file using full path name."""
+    content = ""
+    try:
+        full_path = os.path.join(package_directory, file_path)
+        content = open(full_path, 'r').read()
+    except:
+        print >> sys.stderr, "### could not open file {0!r}".format(file_path)
+    return content
 
 setup(name='pi-ldapproxy',
       version='0.6',
