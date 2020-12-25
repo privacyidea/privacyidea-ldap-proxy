@@ -20,15 +20,15 @@ def login(username, password, ldap_server, base_dn, uid_attribute):
     :return: boolean
     """
     dn = construct_dn(username, base_dn, uid_attribute)
-    print 'Given username {!r}, constructed dn: {!r}'.format(username, dn)
-    print 'Connecting to LDAP server {!r} ...'.format(ldap_server)
+    print('Given username {!r}, constructed dn: {!r}'.format(username, dn))
+    print('Connecting to LDAP server {!r} ...'.format(ldap_server))
     conn = ldap3.Connection(ldap_server, user=dn, password=password)
-    print 'Bind with password {!r} ...'.format(password),
+    print('Bind with password {!r} ...'.format(password), end=' ')
     result = conn.bind()
     if result:
-        print 'Successful bind!'
+        print('Successful bind!')
     else:
-        print 'Bind FAILED!'
+        print('Bind FAILED!')
     return result
 
 if __name__ == '__main__':
@@ -36,7 +36,7 @@ if __name__ == '__main__':
         config = configobj.ConfigObj(f)
     password = config['password']
     if not password:
-        password = raw_input('Password? ')
+        password = input('Password? ')
     login(config['username'],
           password,
           config['ldap-server'],

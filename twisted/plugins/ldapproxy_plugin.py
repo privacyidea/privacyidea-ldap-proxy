@@ -33,7 +33,7 @@ class ProxyServiceMaker(object):
         """
         # Configuration is mandatory
         if options['config'] is None:
-            print 'You need to specify a configuration file via `twistd ldap-proxy -c config.ini`.'
+            print('You need to specify a configuration file via `twistd ldap-proxy -c config.ini`.')
             sys.exit(1)
 
         config = load_config(options['config'])

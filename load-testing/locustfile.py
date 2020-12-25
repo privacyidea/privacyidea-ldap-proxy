@@ -27,7 +27,7 @@ class LDAPConnection(ldap3.Connection):
 class LDAPLocust(Locust):
     def __init__(self, *args, **kwargs):
         super(LDAPLocust, self).__init__(*args, **kwargs)
-        dn = random.choice(USERS.keys())
+        dn = random.choice(list(USERS.keys()))
         pin = USERS[dn]
         self.client = LDAPConnection(self.host,
                                      user=dn,

@@ -86,7 +86,7 @@ class LookupMappingStrategy(UserMappingStrategy):
             assert len(login_name_set) == 1
             (login_name,) = login_name_set
             defer.returnValue(login_name)
-        except ldaperrors.LDAPNoSuchObject, e:
+        except ldaperrors.LDAPNoSuchObject as e:
             # Apparently, the user could not be found. Raise the appropriate exception.
             raise UserMappingError(dn)
         finally:

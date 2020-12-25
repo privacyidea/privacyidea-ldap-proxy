@@ -3,8 +3,8 @@ import argparse
 import json
 import sys
 import re
-import urllib
-from cStringIO import StringIO
+import urllib.request, urllib.parse, urllib.error
+from io import StringIO
 from functools import partial
 
 from ldaptor.protocols import pureldap
@@ -31,7 +31,7 @@ log = Logger()
 class ProxyError(Exception):
     pass
 
-DN_BLACKLIST = map(re.compile, ['^dn=uid='])
+DN_BLACKLIST = list(map(re.compile, ['^dn=uid=']))
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
@@ -65,7 +65,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :param password: password for authentication
         :return: A Twisted Deferred which yields a `twisted.web.client.Response` instance or fails.
         """
-        body = urllib.urlencode({'user': user,
+        body = urllib.parse.urlencode({'user': user,
                                 'realm': realm,
                                 'pass': password})
         # TODO: Is this really the preferred way to pass a string body?
@@ -103,7 +103,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # User could not be found
             log.info('Could not resolve {dn!r} to user', dn=request.dn)
             result = (False, 'Invalid user.')
-        except RealmMappingError, e:
+        except RealmMappingError as e:
             # Realm could not be mapped
             log.info('Could not resolve {dn!r} to realm: {message!r}', dn=request.dn, message=e.message)
             # TODO: too much information revealed?
@@ -211,7 +211,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     else:
                         log.warn('Possibly sending an invalid LDAP SEARCH result reference, '
                                  'check the ignore-search-result-reference config option for more details.')
-        except Exception, e:
+        except Exception as e:
             log.failure("Unhandled error in handleProxiedResponse: {e}", e=e)
             raise
         return response
@@ -385,7 +385,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
         try:
             yield client.bind(self.service_account_dn, self.service_account_password)
-        except ldaperrors.LDAPException, e:
+        except ldaperrors.LDAPException as e:
             # Call unbind() here if an exception occurs: Otherwise, Twisted will keep the file open
             # and slowly run out of open files.
             yield client.unbind()
@@ -484,6 +484,6 @@ class ProxyServerFactory(protocol.ServerFactory):
             yield client.unbind()
             log.info('Successfully tested the connection to the LDAP backend using the service account')
             defer.returnValue(True)
-        except Exception, e:
+        except Exception as e:
             log.failure('Could not connect to LDAP backend', exception=e)
             defer.returnValue(False)

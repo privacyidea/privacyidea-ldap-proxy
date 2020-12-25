@@ -1,6 +1,6 @@
 import json
 
-import httplib
+import http.client
 from ldaptor import testutil
 from ldaptor.protocols import pureldap
 from ldaptor.protocols.ldap.ldapclient import LDAPClient
@@ -58,7 +58,7 @@ class MockPrivacyIDEA(object):
             data['result']['value'] = result
         body = json.dumps(data)
         headers = Headers(SUCCESSFUL_HEADERS)
-        response = MockResponse(b'HTTP/1.1', self.response_code, httplib.responses[self.response_code], headers, body)
+        response = MockResponse(b'HTTP/1.1', self.response_code, http.client.responses[self.response_code], headers, body)
         return response
 
     def authenticate(self, url, user, realm, password):

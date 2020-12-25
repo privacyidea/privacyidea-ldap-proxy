@@ -30,13 +30,13 @@ def lookup_user(username,ldap_server, service_account_dn, service_account_passwo
     conn = ldap3.Connection(ldap_server, user=service_account_dn, password=service_account_password)
     result = conn.bind()
     if result:
-        print '[Service Account] Successful bind!'
+        print('[Service Account] Successful bind!')
         conn.search(base_dn,
                     filter_template.format(attr=loginname_attribute, username=username),
                     attributes=['cn'])
-        print '[Service Account] Looking for entry that satisfies {attr}={username}'.format(
+        print('[Service Account] Looking for entry that satisfies {attr}={username}'.format(
             attr=loginname_attribute,
-            username=username)
+            username=username))
         if len(conn.entries) != 1:
             raise RuntimeError('Expected one entry, found {}!'.format(len(conn.entries)))
         entry = conn.entries[0]
