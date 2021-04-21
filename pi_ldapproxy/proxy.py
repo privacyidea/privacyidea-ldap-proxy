@@ -4,7 +4,7 @@ import json
 import sys
 import re
 import urllib.request, urllib.parse, urllib.error
-from io import StringIO
+from io import BytesIO
 from functools import partial
 
 from ldaptor.protocols import pureldap
@@ -31,7 +31,7 @@ log = Logger()
 class ProxyError(Exception):
     pass
 
-DN_BLACKLIST = list(map(re.compile, ['^dn=uid=']))
+DN_BLACKLIST = list(map(re.compile, [b'^dn=uid=']))
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
@@ -66,11 +66,12 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :return: A Twisted Deferred which yields a `twisted.web.client.Response` instance or fails.
         """
         body = urllib.parse.urlencode({'user': user,
-                                'realm': realm,
-                                'pass': password})
+                                       'realm': realm,
+                                       'pass': password})
         # TODO: Is this really the preferred way to pass a string body?
-        producer = FileBodyProducer(StringIO(body))
-        d = self.factory.agent.request('POST',
+        log.info('Validating user password')
+        producer = FileBodyProducer(BytesIO(body.encode('ascii')))
+        d = self.factory.agent.request(b'POST',
                            url,
                            Headers({
                                'Content-Type': ['application/x-www-form-urlencoded'],
@@ -259,7 +260,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     self.send_bind_response((False, 'Reusing connections is disabled.'), request, reply)
                     return None
             self.received_bind_request = True
-            if request.dn == '':
+            if request.dn == b'':
                 if self.factory.forward_anonymous_binds:
                     return request, controls
                 else:
@@ -330,15 +331,15 @@ class ProxyServerFactory(protocol.ServerFactory):
         # Construct the validate url from the instance location
         if self.privacyidea_instance[-1] != '/':
             self.privacyidea_instance += '/'
-        self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance)
+        self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance).encode('ascii')
 
         self.service_account_dn = config['service-account']['dn']
         self.service_account_password = config['service-account']['password']
 
         # We have to make a small workaround for configobj here: An empty config value
         # is interpreted as a list with one element, the empty string.
-        self.passthrough_binds = config['ldap-proxy']['passthrough-binds']
-        if len(self.passthrough_binds) == 1 and self.passthrough_binds[0]  == '':
+        self.passthrough_binds = [dn.encode('utf-8') for dn in config['ldap-proxy']['passthrough-binds']]
+        if len(self.passthrough_binds) == 1 and self.passthrough_binds[0]  == b'':
             self.passthrough_binds = []
         log.info('Passthrough DNs: {binds!r}', binds=self.passthrough_binds)
 

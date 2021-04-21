@@ -43,7 +43,7 @@ class MatchMappingStrategy(UserMappingStrategy):
     """
     def __init__(self, factory, config):
         UserMappingStrategy.__init__(self, factory, config)
-        self.pattern = re.compile(config['pattern'], re.IGNORECASE)
+        self.pattern = re.compile(config['pattern'].encode('utf8'), re.IGNORECASE)
 
     def resolve(self, dn):
         match = self.pattern.match(dn)
