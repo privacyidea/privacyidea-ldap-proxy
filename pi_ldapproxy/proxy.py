@@ -106,7 +106,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             result = (False, 'Invalid user.')
         except RealmMappingError as e:
             # Realm could not be mapped
-            log.info('Could not resolve {dn!r} to realm: {message!r}', dn=request.dn, message=e.message)
+            log.info('Could not resolve {dn!r} to realm: {message!r}', dn=request.dn, message=e.args)
             # TODO: too much information revealed?
             result = (False, 'Could not determine realm.')
         else:
