@@ -17,7 +17,7 @@ SUCCESSFUL_HEADERS = {
 
 class MockResponse(Response):
     def __init__(self, version, code, phrase, headers, body):
-        headers.addRawHeader('Content-Length', [str(len(body))])
+        headers.addRawHeader('Content-Length', str(len(body)))
         Response.__init__(self, version, code, phrase, headers, None)
         self.body = body
 
