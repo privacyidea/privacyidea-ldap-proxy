@@ -43,7 +43,7 @@ class MatchMappingStrategy(UserMappingStrategy):
     """
     def __init__(self, factory, config):
         UserMappingStrategy.__init__(self, factory, config)
-        self.pattern = re.compile(config['pattern'].encode('utf8'), re.IGNORECASE)
+        self.pattern = re.compile(config['pattern'], re.IGNORECASE)
 
     def resolve(self, dn):
         match = self.pattern.match(dn)
@@ -85,7 +85,7 @@ class LookupMappingStrategy(UserMappingStrategy):
             login_name_set = results[0][self.attribute]
             assert len(login_name_set) == 1
             (login_name,) = login_name_set
-            defer.returnValue(login_name)
+            defer.returnValue(login_name.decode('utf8'))
         except ldaperrors.LDAPNoSuchObject as e:
             # Apparently, the user could not be found. Raise the appropriate exception.
             raise UserMappingError(dn)

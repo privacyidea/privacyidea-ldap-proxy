@@ -5,6 +5,8 @@ from twisted.web.client import _requireSSL
 from twisted.web.iweb import IPolicyForHTTPS
 from zope.interface import implementer
 
+def maybe_decode(s):
+    return s if isinstance(s, str) else s.decode('utf-8')
 
 @implementer(IOpenSSLClientConnectionCreator)
 class DisabledVerificationClientTLSOptions(ClientTLSOptions):

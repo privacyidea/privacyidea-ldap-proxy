@@ -38,7 +38,7 @@ class TestProxyUserBind(ProxyTestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(len(results[0]['someattr']), 1)
         (value,) = results[0]['someattr']
-        self.assertEqual(value, 'somevalue')
+        self.assertEqual(value.decode('utf8'), 'somevalue')
 
     def test_wrong_credentials(self):
         dn = 'uid=hugo,cn=users,dc=test,dc=local'
@@ -129,4 +129,4 @@ class TestProxyPassthroughSearch(ProxyTestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(len(results[0]['someattr']), 1)
         (value,) = results[0]['someattr']
-        self.assertEqual(value, 'somevalue')
+        self.assertEqual(value.decode('utf8'), 'somevalue')

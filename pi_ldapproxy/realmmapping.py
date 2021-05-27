@@ -2,6 +2,7 @@ from ldaptor.protocols.pureldap import LDAPFilter_and, LDAPFilter_or, LDAPFilter
     LDAPSearchResultEntry
 from twisted.internet import defer
 from twisted.logger import Logger
+from pi_ldapproxy.util import maybe_decode
 
 log = Logger()
 
@@ -25,8 +26,8 @@ def find_app_marker(filter, attribute='objectclass', value_prefix='App-'):
                 return app_marker
     elif isinstance(filter, LDAPFilter_equalityMatch):
         # check attribute name and value prefix
-        if filter.attributeDesc.value.lower() == attribute.lower():
-            value = filter.assertionValue.value
+        if maybe_decode(filter.attributeDesc.value).lower() == attribute.lower():
+            value = maybe_decode(filter.assertionValue.value)
             if value.startswith(value_prefix):
                 return value[len(value_prefix):]
     return None

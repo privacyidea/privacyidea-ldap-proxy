@@ -24,14 +24,14 @@ from pi_ldapproxy.config import load_config
 from pi_ldapproxy.appcache import AppCache
 from pi_ldapproxy.realmmapping import detect_login_preamble, REALM_MAPPING_STRATEGIES, RealmMappingError
 from pi_ldapproxy.usermapping import USER_MAPPING_STRATEGIES, UserMappingError
-from pi_ldapproxy.util import DisabledVerificationPolicyForHTTPS
+from pi_ldapproxy.util import DisabledVerificationPolicyForHTTPS, maybe_decode
 
 log = Logger()
 
 class ProxyError(Exception):
     pass
 
-DN_BLACKLIST = list(map(re.compile, [b'^dn=uid=']))
+DN_BLACKLIST = list(map(re.compile, ['^dn=uid=']))
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
@@ -97,6 +97,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         #: If the first element is False, authentication has failed. The second element then contains
         #: the error message.
         result = (False, '')
+        request.auth = maybe_decode(request.auth)
         try:
             app_marker, realm = yield self.factory.resolve_realm(request.dn)
             user = yield self.factory.resolve_user(request.dn)
@@ -260,7 +261,8 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     self.send_bind_response((False, 'Reusing connections is disabled.'), request, reply)
                     return None
             self.received_bind_request = True
-            if request.dn == b'':
+            request.dn = maybe_decode(request.dn)
+            if request.dn == '':
                 if self.factory.forward_anonymous_binds:
                     return request, controls
                 else:
@@ -338,8 +340,8 @@ class ProxyServerFactory(protocol.ServerFactory):
 
         # We have to make a small workaround for configobj here: An empty config value
         # is interpreted as a list with one element, the empty string.
-        self.passthrough_binds = [dn.encode('utf-8') for dn in config['ldap-proxy']['passthrough-binds']]
-        if len(self.passthrough_binds) == 1 and self.passthrough_binds[0]  == b'':
+        self.passthrough_binds = config['ldap-proxy']['passthrough-binds']
+        if len(self.passthrough_binds) == 1 and self.passthrough_binds[0]  == '':
             self.passthrough_binds = []
         log.info('Passthrough DNs: {binds!r}', binds=self.passthrough_binds)
 
