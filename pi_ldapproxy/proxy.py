@@ -12,6 +12,7 @@ from ldaptor.protocols.ldap import ldaperrors
 from ldaptor.protocols.ldap.ldapclient import LDAPClient
 from ldaptor.protocols.ldap.ldapconnector import connectToLDAPEndpoint
 from ldaptor.protocols.ldap.proxybase import ProxyBase
+from six import ensure_str
 from twisted.internet import defer, protocol, reactor
 from twisted.logger import Logger
 from twisted.internet.ssl import Certificate
@@ -24,7 +25,7 @@ from pi_ldapproxy.config import load_config
 from pi_ldapproxy.appcache import AppCache
 from pi_ldapproxy.realmmapping import detect_login_preamble, REALM_MAPPING_STRATEGIES, RealmMappingError
 from pi_ldapproxy.usermapping import USER_MAPPING_STRATEGIES, UserMappingError
-from pi_ldapproxy.util import DisabledVerificationPolicyForHTTPS, maybe_decode
+from pi_ldapproxy.util import DisabledVerificationPolicyForHTTPS
 
 log = Logger()
 
@@ -97,7 +98,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         #: If the first element is False, authentication has failed. The second element then contains
         #: the error message.
         result = (False, '')
-        request.auth = maybe_decode(request.auth)
+        request.auth = ensure_str(request.auth)
         try:
             app_marker, realm = yield self.factory.resolve_realm(request.dn)
             user = yield self.factory.resolve_user(request.dn)
@@ -261,7 +262,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     self.send_bind_response((False, 'Reusing connections is disabled.'), request, reply)
                     return None
             self.received_bind_request = True
-            request.dn = maybe_decode(request.dn)
+            request.dn = ensure_str(request.dn)
             if request.dn == '':
                 if self.factory.forward_anonymous_binds:
                     return request, controls
