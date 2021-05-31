@@ -18,5 +18,6 @@ setup(name='pi-ldapproxy',
       author='privacyidea.org',
       license='AGPLv3',
       url='http://www.privacyidea.org',
+      install_requires=['ldaptor', 'six', 'Twisted', 'configobj', 'pyOpenSSL', 'service-identity'],
       long_description=get_file_contents('README.md')
       )
