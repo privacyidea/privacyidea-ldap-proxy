@@ -8,7 +8,7 @@ def get_file_contents(file_path):
         full_path = os.path.join(package_directory, file_path)
         content = open(full_path, 'r').read()
     except:
-        print >> sys.stderr, "### could not open file {0!r}".format(file_path)
+        print("### could not open file {0!r}".format(file_path), file=sys.stderr)
     return content
 
 setup(name='pi-ldapproxy',
@@ -18,5 +18,6 @@ setup(name='pi-ldapproxy',
       author='privacyidea.org',
       license='AGPLv3',
       url='http://www.privacyidea.org',
+      install_requires=['ldaptor', 'six', 'Twisted', 'configobj', 'pyOpenSSL', 'service-identity'],
       long_description=get_file_contents('README.md')
       )

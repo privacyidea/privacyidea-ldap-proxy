@@ -3,8 +3,8 @@ import argparse
 import json
 import sys
 import re
-import urllib
-from cStringIO import StringIO
+import urllib.request, urllib.parse, urllib.error
+from io import BytesIO
 from functools import partial
 
 from ldaptor.protocols import pureldap
@@ -12,6 +12,7 @@ from ldaptor.protocols.ldap import ldaperrors
 from ldaptor.protocols.ldap.ldapclient import LDAPClient
 from ldaptor.protocols.ldap.ldapconnector import connectToLDAPEndpoint
 from ldaptor.protocols.ldap.proxybase import ProxyBase
+from six import ensure_str
 from twisted.internet import defer, protocol, reactor
 from twisted.logger import Logger
 from twisted.internet.ssl import Certificate
@@ -31,7 +32,7 @@ log = Logger()
 class ProxyError(Exception):
     pass
 
-DN_BLACKLIST = map(re.compile, ['^dn=uid='])
+DN_BLACKLIST = list(map(re.compile, ['^dn=uid=']))
 VALIDATE_URL_TEMPLATE = '{}validate/check'
 
 class TwoFactorAuthenticationProxy(ProxyBase):
@@ -65,12 +66,13 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         :param password: password for authentication
         :return: A Twisted Deferred which yields a `twisted.web.client.Response` instance or fails.
         """
-        body = urllib.urlencode({'user': user,
-                                'realm': realm,
-                                'pass': password})
+        body = urllib.parse.urlencode({'user': user,
+                                       'realm': realm,
+                                       'pass': password})
         # TODO: Is this really the preferred way to pass a string body?
-        producer = FileBodyProducer(StringIO(body))
-        d = self.factory.agent.request('POST',
+        log.info('Validating user password')
+        producer = FileBodyProducer(BytesIO(body.encode('ascii')))
+        d = self.factory.agent.request(b'POST',
                            url,
                            Headers({
                                'Content-Type': ['application/x-www-form-urlencoded'],
@@ -96,6 +98,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
         #: If the first element is False, authentication has failed. The second element then contains
         #: the error message.
         result = (False, '')
+        request.auth = ensure_str(request.auth)
         try:
             app_marker, realm = yield self.factory.resolve_realm(request.dn)
             user = yield self.factory.resolve_user(request.dn)
@@ -103,9 +106,9 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # User could not be found
             log.info('Could not resolve {dn!r} to user', dn=request.dn)
             result = (False, 'Invalid user.')
-        except RealmMappingError, e:
+        except RealmMappingError as e:
             # Realm could not be mapped
-            log.info('Could not resolve {dn!r} to realm: {message!r}', dn=request.dn, message=e.message)
+            log.info('Could not resolve {dn!r} to realm: {message!r}', dn=request.dn, message=e.args)
             # TODO: too much information revealed?
             result = (False, 'Could not determine realm.')
         else:
@@ -211,7 +214,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     else:
                         log.warn('Possibly sending an invalid LDAP SEARCH result reference, '
                                  'check the ignore-search-result-reference config option for more details.')
-        except Exception, e:
+        except Exception as e:
             log.failure("Unhandled error in handleProxiedResponse: {e}", e=e)
             raise
         return response
@@ -259,6 +262,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
                     self.send_bind_response((False, 'Reusing connections is disabled.'), request, reply)
                     return None
             self.received_bind_request = True
+            request.dn = ensure_str(request.dn)
             if request.dn == '':
                 if self.factory.forward_anonymous_binds:
                     return request, controls
@@ -330,7 +334,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         # Construct the validate url from the instance location
         if self.privacyidea_instance[-1] != '/':
             self.privacyidea_instance += '/'
-        self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance)
+        self.validate_url = VALIDATE_URL_TEMPLATE.format(self.privacyidea_instance).encode('ascii')
 
         self.service_account_dn = config['service-account']['dn']
         self.service_account_password = config['service-account']['password']
@@ -385,7 +389,7 @@ class ProxyServerFactory(protocol.ServerFactory):
         client = yield connectToLDAPEndpoint(reactor, self.proxied_endpoint_string, LDAPClient)
         try:
             yield client.bind(self.service_account_dn, self.service_account_password)
-        except ldaperrors.LDAPException, e:
+        except ldaperrors.LDAPException as e:
             # Call unbind() here if an exception occurs: Otherwise, Twisted will keep the file open
             # and slowly run out of open files.
             yield client.unbind()
@@ -484,6 +488,6 @@ class ProxyServerFactory(protocol.ServerFactory):
             yield client.unbind()
             log.info('Successfully tested the connection to the LDAP backend using the service account')
             defer.returnValue(True)
-        except Exception, e:
+        except Exception as e:
             log.failure('Could not connect to LDAP backend', exception=e)
             defer.returnValue(False)

@@ -51,7 +51,7 @@ def report_config_errors(config, result):
     Interpret configobj results and report configuration errors to the user.
     """
     # from http://www.voidspace.org.uk/python/configobj.html#example-usage
-    print 'Invalid config file:'
+    print('Invalid config file:')
     for entry in configobj.flatten_errors(config, result):
         # each entry is a tuple
         section_list, key, error = entry
@@ -62,7 +62,7 @@ def report_config_errors(config, result):
         section_string = ', '.join(section_list)
         if error == False:
             error = 'Invalid value (or section).'
-        print '{}: {}'.format(section_string, error)
+        print('{}: {}'.format(section_string, error))
 
 
 def load_config(filename):

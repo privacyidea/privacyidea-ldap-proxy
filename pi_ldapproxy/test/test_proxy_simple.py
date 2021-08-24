@@ -133,8 +133,16 @@ class TestProxyIgnoringReferences(ProxyTestCase):
             ],
             [
                 pureldap.LDAPSearchResultEntry(dn, [('someattr', ['somevalue'])]),
-                pureldap.LDAPSearchResultReference(), # NOTE: ldaptor does not really support these
-                pureldap.LDAPSearchResultReference(),
+                pureldap.LDAPSearchResultReference(
+                    uris=[
+                        pureldap.LDAPString(b'ldap://test.local')
+                    ]
+                ), # NOTE: ldaptor does not really support these
+                pureldap.LDAPSearchResultReference(
+                    uris=[
+                        pureldap.LDAPString(b'ldap://test.local')
+                    ]
+                ),
                 pureldap.LDAPSearchResultDone(ldaperrors.Success.resultCode),
             ]
         )

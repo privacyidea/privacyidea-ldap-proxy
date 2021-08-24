@@ -24,13 +24,13 @@ def login(username, password, ldap_server, service_account_dn, service_account_p
     :return: dictionary with boolean key 'success'. In case of success, it also contains user information.
     """
     dn = lookup_user(username, ldap_server, service_account_dn, service_account_password, base_dn, loginname_attribute)
-    print 'Given username {!r}, looked up dn: {!r}'.format(username, dn)
-    print 'Connecting to LDAP server {!r} ...'.format(ldap_server)
+    print('Given username {!r}, looked up dn: {!r}'.format(username, dn))
+    print('Connecting to LDAP server {!r} ...'.format(ldap_server))
     conn = ldap3.Connection(ldap_server, user=dn, password=password)
-    print 'Bind with password {!r} ...'.format(password),
+    print('Bind with password {!r} ...'.format(password), end=' ')
     result = conn.bind()
     if result:
-        print 'Successful bind!'
+        print('Successful bind!')
         # Fetch user information
         conn.search(dn, '(objectClass=*)', attributes=ldap3.ALL_ATTRIBUTES)
         if len(conn.entries) != 1:
@@ -41,7 +41,7 @@ def login(username, password, ldap_server, service_account_dn, service_account_p
             'displayName': entry.displayName.value,
         }
     else:
-        print 'Bind FAILED!'
+        print('Bind FAILED!')
         return {
             'success': False,
         }
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         config = configobj.ConfigObj(f)
     password = config['password']
     if not password:
-        password = raw_input('Password? ')
+        password = input('Password? ')
     pprint(login(config['username'],
                  password,
                  config['ldap-server'],

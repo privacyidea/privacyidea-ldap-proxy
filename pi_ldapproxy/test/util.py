@@ -87,8 +87,8 @@ class ProxyTestCase(twisted.trial.unittest.TestCase):
 
     def get_config(self):
         config = load_test_config()
-        for section, contents in self.additional_config.iteritems():
-            for key, value in contents.iteritems():
+        for section, contents in self.additional_config.items():
+            for key, value in contents.items():
                 config[section][key] = value
         return config
 
