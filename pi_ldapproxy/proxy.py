@@ -3,7 +3,7 @@ import argparse
 import json
 import sys
 import re
-import urllib.request, urllib.parse, urllib.error
+import urllib
 from io import BytesIO
 from functools import partial
 

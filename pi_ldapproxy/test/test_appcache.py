@@ -1,6 +1,7 @@
 import time
 import twisted
 from twisted.internet import task
+from twisted.trial.unittest import TestCase
 
 from pi_ldapproxy.appcache import AppCache
 
@@ -12,7 +13,8 @@ MARKER1 = 'marker1'
 MARKER2 = 'marker2'
 TIMEOUT = 5
 
-class TestAppCache(twisted.trial.unittest.TestCase):
+
+class TestAppCache(TestCase):
     def test_multiple_entries(self):
         cache = AppCache(TIMEOUT)
         clock = task.Clock()
