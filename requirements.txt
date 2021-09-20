@@ -15,7 +15,7 @@ pyasn1-modules==0.0.9
 pycparser==2.19
 pyOpenSSL==18.0.0
 pyparsing==2.1.10
-service-identity==17.0.0
+service-identity==21.1.0
 six==1.16.0
 Twisted==20.3.0
 wheel==0.24.0
