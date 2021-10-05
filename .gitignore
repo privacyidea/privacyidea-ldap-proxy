@@ -1,0 +1,21 @@
+# Created by .ignore support plugin (hsz.mobi)
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution
+*.egg-info/
+
+# Virtual Environments
+venv*/
+
+# IDE
+.idea/
+
+# Tests
+_trial_temp/
+
+# Cache
+twisted/plugins/dropin.cache
