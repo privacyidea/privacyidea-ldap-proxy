@@ -20,7 +20,7 @@ def get_file_contents(file_path):
 
 
 setup(name='pi-ldapproxy',
-      version='0.6',
+      version='0.7',
       description='privacyIDEA LDAP Proxy based on Twisted',
       packages=['pi_ldapproxy', 'pi_ldapproxy.test', 'twisted.plugins'],
       author='privacyidea.org',
