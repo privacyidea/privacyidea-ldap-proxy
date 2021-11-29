@@ -1,3 +1,24 @@
+Version 0.7, 2021-11-29
+
+  * Enable GitHub workflow 55
+  * Update requirements #56
+  
+Version 0.6.2, 2021-09-13
+
+  * python2 to python3 #54
+  * fix py3k issues #54
+  * pi_ldapproxy/proxy: reference correct error attribute #54
+  * pi_ldapproxy/test/mock: pass header value as string #54
+  * pi_ldapproxy/test/test_proxy_simple: pass ldap uris to ldaptor #54
+  * remove enum34 #54
+  * Fix tests. But at what cost? #54
+  * use six.ensure_str for stringification #54
+
+Version 0.6.1, 2018-11-22
+
+  * Fix setup.py
+  * Update cryptography to 2.4.2  Fixes #48
+
 Version 0.6, 2018-11-19
 
   * Close connection to backend in case of health checks (#44)
