@@ -294,7 +294,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             # Assuming `bind-service-account` is enabled and the privacyIDEA authentication was successful,
             # the service account is already authenticated for `self.client`.
             return request, controls
-        elif isinstance(request, pureldap.LDAPUnbindRequest):
+        elif isinstance(request, pureldap.LDAPUnbindRequest) or isinstance(request, pureldap.LDAPCompareRequest):
             # We just forward any Unbind Request, regardless of whether we have sent a Bind Request to
             # the LDAP backend earlier.
             return request, controls
