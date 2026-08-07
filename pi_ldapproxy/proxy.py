@@ -4,6 +4,7 @@ import json
 import sys
 import re
 import urllib
+import fnmatch
 from io import BytesIO
 from functools import partial
 
@@ -272,7 +273,7 @@ class TwoFactorAuthenticationProxy(ProxyBase):
             elif self.factory.is_dn_blacklisted(request.dn):
                 self.send_bind_response((False, 'DN is blacklisted.'), request, reply)
                 return None
-            elif request.dn in self.factory.passthrough_binds:
+            elif self.factory.is_passthrough_dn(request.dn):
                 log.info('BindRequest for {dn!r}, passing through ...', dn=request.dn)
                 self.forwarded_passthrough_bind = True
                 return request, controls
@@ -462,6 +463,14 @@ class ProxyServerFactory(protocol.ServerFactory):
         :return: a boolean
         """
         return any(pattern.match(dn) for pattern in DN_BLACKLIST)
+
+    def is_passthrough_dn(self, dn):
+        """
+        Check whether the given distinguished name is part of our passthrough-binds setting
+        :param dn: Distinguished Name as string
+        :return: a boolean
+        """
+        return any(fnmatch.fnmatch(dn, pattern) for pattern in self.passthrough_binds)
 
     def buildProtocol(self, addr):
         """
