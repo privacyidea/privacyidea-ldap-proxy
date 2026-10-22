@@ -33,6 +33,7 @@ setup(name='pi-ldapproxy',
                         'pyOpenSSL',
                         'zope.interface'],
       long_description=get_file_contents('README.md'),
+      long_description_content_type='text/markdown',
       classifiers=[
           "Framework :: Twisted",
           "Intended Audience :: System Administrators",

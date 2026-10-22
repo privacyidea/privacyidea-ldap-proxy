@@ -43,3 +43,9 @@ is part of Twisted. They can be run using:
     trial pi_ldapproxy.test
 
 There are also a number of client-side scenarios implemented in the `scenarios/` directory.
+
+Releasing
+---------
+
+See [Publishing Python releases](docs/releases.md) for the PyPI workflow,
+Trusted Publisher setup, and release procedure.
