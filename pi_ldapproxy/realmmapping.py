@@ -3,6 +3,7 @@ from ldaptor.protocols.pureldap import LDAPFilter_and, LDAPFilter_or, LDAPFilter
 from twisted.internet import defer
 from twisted.logger import Logger
 from six import ensure_str
+import re
 
 log = Logger()
 
@@ -93,6 +94,76 @@ class StaticMappingStrategy(RealmMappingStrategy):
     def resolve(self, dn):
         return defer.succeed((self.realm, self.realm))
 
+class RegexMappingStrategy(RealmMappingStrategy):
+    """
+    `regex` mapping strategy: Use regular expressions to map DNs to realms.
+    The first matching regex determines the realm. If no regex matches, 
+    uses the configured realm parameter (like static strategy).
+
+    Configuration:
+        `mappings` is a subsection which maps regex patterns to realm names.
+        Patterns are checked in alphabetical order of their keys, so you should
+        prefix them with numbers if you want a specific order.
+        
+        `realm` (optional) is the realm name to use when no regex matches.
+        If not specified, behaves like static strategy (empty realm).
+        
+        `case-insensitive` (optional) if set to true, DN matching will be 
+        case-insensitive. Default is false (case-sensitive).
+
+        e.g.:
+
+            [realm-mapping]
+            strategy = regex
+            realm = default
+            case-insensitive = true
+
+            [[mappings]]
+            01_ou_users = ^cn=.*,ou=users,dc=example,dc=com$
+            02_ou_admins = ^cn=.*,ou=admins,dc=example,dc=com$
+    """
+    def __init__(self, factory, config):
+        RealmMappingStrategy.__init__(self, factory, config)
+        self.mappings = config['mappings']
+        self.realm = config.get('realm', '')
+        self.case_insensitive = config.get('case-insensitive', False)
+        self.compiled_patterns = []
+        
+        for realm_name, pattern in sorted(self.mappings.items()):
+            try:
+                # Handle case when pattern is a list (config parser behavior)
+                if isinstance(pattern, list):
+                    if len(pattern) > 0:
+                        pattern = pattern[0]  # Take first element
+                    else:
+                        raise RealmMappingError('Empty pattern list for realm {realm!r}'.format(realm=realm_name))
+                flags = re.IGNORECASE if self.case_insensitive else 0
+                compiled_pattern = re.compile(pattern, flags)
+                self.compiled_patterns.append((realm_name, compiled_pattern))
+            except re.error as e:
+                raise RealmMappingError('Invalid regex pattern {pattern!r}: {error}'.format(
+                    pattern=pattern, error=str(e)))
+
+    def resolve(self, dn):
+        """
+        Resolve DN to realm using regex patterns.
+        
+        :param dn: Distinguished Name as string
+        :return: Deferred firing tuple (app_marker, realm_name)
+        """
+        
+        dn_to_check = dn
+        
+        for realm_name, pattern in self.compiled_patterns:
+            match = pattern.match(dn_to_check)
+            if match:
+                try:
+                    resolved_realm = realm_name.format(*match.groups(), **match.groupdict())
+                    return defer.succeed((resolved_realm, resolved_realm))
+                except (KeyError, IndexError):
+                    return defer.succeed((realm_name, realm_name))
+        
+        return defer.succeed((self.realm, self.realm))
 
 class AppCacheMappingStrategy(RealmMappingStrategy):
     """
@@ -132,4 +203,5 @@ class AppCacheMappingStrategy(RealmMappingStrategy):
 REALM_MAPPING_STRATEGIES = {
     'static': StaticMappingStrategy,
     'app-cache': AppCacheMappingStrategy,
+    'regex': RegexMappingStrategy,
 }

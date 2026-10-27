@@ -44,6 +44,8 @@ strategy = string
 
 [realm-mapping]
 strategy = string
+realm = string(default='')
+case-insensitive = boolean(default=False)
 """
 
 def report_config_errors(config, result):
